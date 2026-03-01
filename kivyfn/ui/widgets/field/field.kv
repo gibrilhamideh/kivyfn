@@ -1,0 +1,292 @@
+# ================================ #
+#         Base Classes
+# ================================ #
+<FieldIcon>:
+    text: root.icon_markup if root.icon_markup else ''
+    markup: True
+    color: 1, 1, 1, 1
+
+
+<KcTextField>:
+    app: app
+    multiline: False
+    pos_hint: {'center_y': 0.5}
+    canvas.before:
+        Clear
+
+        # background_color
+        Color:
+            rgba: root.background_color if not self.disabled else self.disabled_background_color
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: root.radius
+
+        # icon
+        Color:
+            rgba:
+                ( \
+                ( \
+                root.focus_color if root.focus else \
+                root.icon_color \
+                ) if not root.disabled else \
+                root.icon_disabled_color \
+                ) if root.icon_texture else \
+                [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.icon_texture.texture if root.icon_texture else None
+            size: root.icon_size[0], root.icon_size[1]
+            pos: self.right - root.icon_size[0] - dp(5), self.center_y - root.icon_size[1] / 2
+
+        # trailing text
+        Color:
+            rgba: 
+                ( \
+                ( \
+                root.focus_color if root.focus else \
+                root.trailing_text_color \
+                ) if not root.disabled else \
+                root.trailing_text_disabled_color \
+                ) if root.trailing_text_texture else \
+                [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.trailing_text_texture.texture if root.trailing_text_texture else None
+            size: root.trailing_text_size[0], root.trailing_text_size[1]
+            pos: self.right - root.trailing_text_size[0] - dp(5), self.center_y - root.trailing_text_size[1] / 2
+
+        # border
+        Color:
+            rgba: ( ( self.focus_color if self.focus else self.border_color ) if not self.disabled else self.disabled_border_color ) if self.border_color else [0, 0, 0, 0]
+
+        SmoothLine:
+            width: self.border_width
+            rounded_rectangle: [self.x, self.y, self.width, self.height, *root.radius]
+
+        # cursor
+        Color:
+            rgba: self.focus_color if root.focus else [0, 0, 0, 0]
+
+        Rectangle:
+            group: "rectangle-cursor-blink"
+            pos: (int(x) for x in self.cursor_pos)
+            size: 1, -self.line_height
+
+        # textcolor
+        Color:
+            group: "text-color"
+            rgba: (self.focus_color if root.focus else self.text_color) if not self.disabled else self.disabled_text_color
+
+
+
+
+<KcNumericField>:
+    app: app
+    pos_hint: {'center_y': 0.5}
+    multiline: False
+    canvas.before:
+        Clear
+
+        # background_color
+        Color:
+            rgba: root.background_color if not self.disabled else self.disabled_background_color
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: root.radius
+
+        # icon
+        Color:
+            rgba:
+                ( \
+                ( \
+                root.focus_color if root.focus else \
+                root.icon_color \
+                ) if not root.disabled else \
+                root.icon_disabled_color \
+                ) if root.icon_texture else \
+                [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.icon_texture.texture if root.icon_texture else None
+            size: root.icon_size[0], root.icon_size[1]
+            pos: self.right - root.icon_size[0] - dp(5), self.center_y - root.icon_size[1] / 2
+
+        # trailing text
+        Color:
+            rgba: 
+                ( \
+                ( \
+                root.focus_color if root.focus else \
+                root.trailing_text_color \
+                ) if not root.disabled else \
+                root.trailing_text_disabled_color \
+                ) if root.trailing_text_texture else \
+                [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.trailing_text_texture.texture if root.trailing_text_texture else None
+            size: root.trailing_text_size[0], root.trailing_text_size[1]
+            pos: self.right - root.trailing_text_size[0] - dp(5), self.center_y - root.trailing_text_size[1] / 2
+
+        # border
+        Color:
+            rgba: ( ( self.focus_color if self.focus else self.border_color ) if not self.disabled else self.disabled_border_color ) if self.border_color else [0, 0, 0, 0]
+
+        SmoothLine:
+            width: self.border_width
+            rounded_rectangle: [self.x, self.y, self.width, self.height, *root.radius]
+
+        # cursor
+        Color:
+            rgba: self.focus_color if root.focus else [0, 0, 0, 0]
+
+        Rectangle:
+            group: "rectangle-cursor-blink"
+            pos: (int(x) for x in self.cursor_pos)
+            size: 1, -self.line_height
+
+        # textcolor
+        Color:
+            group: "text-color"
+            rgba: (self.focus_color if root.focus else self.text_color) if not self.disabled else self.disabled_text_color
+
+
+<KcTimeField>:
+    app: app
+    halign: 'left'
+    text_size: self.size
+    pos_hint: {'center_y': 0.5}
+    padding: app.theme.fieldPadding
+    shorten: True
+    shorten_from: 'left' if app.language in ['arabic, hebrew'] else 'right'
+    color: self.focus_color if root.focus else self.text_color
+    disabled_color: self.disabled_text_color
+    canvas.before:
+
+        # background_color
+        Color:
+            rgba: root.background_color if not self.disabled else self.disabled_background_color
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: root.radius
+
+        # icon
+        Color:
+            rgba:
+                ( \
+                ( \
+                root.focus_color if root.focus else \
+                root.icon_color \
+                ) if not root.disabled else \
+                root.icon_disabled_color \
+                ) if root.icon_texture else \
+                [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.icon_texture.texture if root.icon_texture else None
+            size: root.icon_size[0], root.icon_size[1]
+            pos: self.right - root.icon_size[0] - dp(5), self.center_y - root.icon_size[1] / 2
+
+        # border
+        Color:
+            rgba: ( ( self.focus_color if self.focus else self.border_color ) if not self.disabled else self.disabled_border_color ) if self.border_color else [0, 0, 0, 0]
+        Line:
+            width: self.border_width
+            rectangle: self.x, self.y, self.width, self.height
+
+
+<KcSelectionField>:
+    text: app.translate(self.text_key) if self.text_key else ''
+
+    app: app
+    halign: 'left'
+    text_size: self.size
+    pos_hint: {'center_y': 0.5}
+    padding: app.theme.fieldPadding
+    shorten: True
+    shorten_from: 'left' if app.language in ['arabic, hebrew'] else 'right'
+    color: self.focus_color if root.focus else self.text_color
+    disabled_color: self.disabled_text_color
+    canvas.before:
+
+        # background_color
+        Color:
+            rgba: root.background_color if not self.disabled else self.disabled_background_color
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: root.radius
+
+        # icon
+        Color:
+            rgba:
+                ( \
+                ( \
+                root.focus_color if root.focus else \
+                root.icon_color \
+                ) if not root.disabled else \
+                root.icon_disabled_color \
+                ) if root.icon_texture else \
+                [0, 0, 0, 0]
+                
+        Rectangle:
+            texture: root.icon_texture.texture if root.icon_texture else None
+            size: root.icon_size[0], root.icon_size[1]
+            pos: self.right - root.icon_size[0] - dp(5), self.center_y - root.icon_size[1] / 2
+
+        # border
+        Color:
+            rgba: ( ( self.focus_color if self.focus else self.border_color ) if not self.disabled else self.disabled_border_color ) if self.border_color else [0, 0, 0, 0]
+        Line:
+            width: self.border_width
+            rectangle: self.x, self.y, self.width, self.height
+
+
+<KcChannelField>:
+    text: str(len(self.selected))
+    app: app
+    halign: 'left'
+    text_size: self.size
+    pos_hint: {'center_y': 0.5}
+    padding: app.theme.fieldPadding
+    shorten: True
+    shorten_from: 'left' if app.language in ['arabic, hebrew'] else 'right'
+    color: self.focus_color if root.focus else self.text_color
+    disabled_color: self.disabled_text_color
+    canvas.before:
+
+        # background_color
+        Color:
+            rgba: root.background_color if not self.disabled else self.disabled_background_color
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: root.radius
+
+        # icon
+        Color:
+            rgba:
+                ( \
+                ( \
+                root.focus_color if root.focus else \
+                root.icon_color \
+                ) if not root.disabled else \
+                root.icon_disabled_color \
+                ) if root.icon_texture else \
+                [0, 0, 0, 0]
+                
+        Rectangle:
+            texture: root.icon_texture.texture if root.icon_texture else None
+            size: root.icon_size[0], root.icon_size[1]
+            pos: self.right - root.icon_size[0] - dp(5), self.center_y - root.icon_size[1] / 2
+
+        # border
+        Color:
+            rgba: ( ( self.focus_color if self.focus else self.border_color ) if not self.disabled else self.disabled_border_color ) if self.border_color else [0, 0, 0, 0]
+        Line:
+            width: self.border_width
+            rectangle: self.x, self.y, self.width, self.height
+
