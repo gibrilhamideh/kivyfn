@@ -1,0 +1,25 @@
+from __future__ import annotations
+
+from kivy.app import App
+from kivy.base import Builder
+
+from kivyfn.resources import app_path
+from kivyfn.i18n import i18n
+
+Builder.load_string(
+    """
+    #: import tr kivyfn.i18n.i18n
+    """
+)
+
+
+class FnApp(App):
+    def __init__(self, lang=None, locales_dir=None, **kwargs):
+        if locales_dir is None:
+            locales_dir = app_path("locales")
+            if not locales_dir.exists():
+                raise FileNotFoundError(f"Expected locales directory at: {locales_dir}")
+
+        i18n.configure(lang, locales_dir)
+        super().__init__(**kwargs)
+
