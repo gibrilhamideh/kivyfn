@@ -18,24 +18,50 @@ from kivy.properties import (
     StringProperty,
     VariableListProperty,
     BoundedNumericProperty,
-    DictProperty
+    DictProperty,
 )
 
+from ...behaviors.binder import FnBinder
+
 Builder.load_string(
-"""
+    """
 #:import RelativeLayout kivy.uix.relativelayout.RelativeLayout
 
 
-<Style>
+<FnWidget>:
     canvas.before:
+        # =============================
+        # Clear all Previous Instructions
+        # =============================
+        Clear
+
+        # =============================
+        # Transform Layer
+        # =============================
         PushMatrix
+
+        # -------- Rotation --------
         Rotate:
             angle: self.angle
             origin: self._background_origin
-        
 
+        # -------- Scale --------
+        Scale:
+            x: self.scale_value_x
+            y: self.scale_value_y
+            z: self.scale_value_z
+            origin:
+                self.center \
+                if not self.scale_value_center else \
+                self.scale_value_center
+
+
+        # =============================
+        # Shadow / Elevation Layer
+        # =============================
         Color:
             rgba: root.shadow_color
+
         BoxShadow:
             pos: self.pos if not isinstance(self, RelativeLayout) else (0, 0)
             size: self.size
@@ -44,20 +70,27 @@ Builder.load_string(
             blur_radius: root.elevation_levels[root.elevation]
             border_radius: root.radius
 
-            
+
+        # =============================
+        # Background Layer
+        # =============================
         Color:
             group: "backgroundcolor-behavior-bg-color"
             rgba: self.background_color
 
         SmoothRoundedRectangle:
-            group: "Background_instruction"
             size: self.size
             pos: self.pos if not isinstance(self, RelativeLayout) else (0, 0)
             radius: root.radius
             source: root.background
 
+
+        # =============================
+        # Border Layer
+        # =============================
         Color:
             rgba: (0, 0, 0, 0) if self.border_color is None else self.border_color
+
         SmoothLine:
             width: root.border_width
             rounded_rectangle:
@@ -76,14 +109,16 @@ Builder.load_string(
                 self.height, \
                 *self.radius, \
                 ]
+    # =============================
+    # End Transform
+    # =============================
+    canvas.after:
         PopMatrix
-""",
-    filename="Style.kv",
+"""
 )
 
 
-class Style(Widget):
-
+class FnWidget(Widget):
     shadow_color = ColorProperty([0, 0, 0, 0])
     """
     Shadow color.
@@ -91,7 +126,7 @@ class Style(Widget):
     :attr:`shadow_color` is a :class:`~kivy.properties.ColorProperty`
     and defaults to `[0, 0, 0, 0]`.
     """
-    
+
     shadow_softness = VariableListProperty([0, 0], length=2)
     """
     Shadow softness.
@@ -181,8 +216,73 @@ class Style(Widget):
     and defaults to `0`.
     """
 
-    background_origin = ListProperty(None)
+    scale_value_x = NumericProperty(1)
+    """
+    X-axis scale factor of the widget.
 
+    :attr:`scale_value_x` is a :class:`~kivy.properties.NumericProperty`
+    and defaults to `1`.
+    """
+
+    scale_value_y = NumericProperty(1)
+    """
+    Y-axis scale factor of the widget.
+
+    :attr:`scale_value_y` is a :class:`~kivy.properties.NumericProperty`
+    and defaults to `1`.
+    """
+
+    scale_value_z = NumericProperty(1)
+    """
+    Z-axis scale factor of the widget.
+
+    :attr:`scale_value_z` is a :class:`~kivy.properties.NumericProperty`
+    and defaults to `1`.
+    """
+
+    scale_value_center = ListProperty()
+    """
+    Origin point used for scaling transformations.
+
+    If not specified, the widget's center will be used.
+
+    The format can be either `(x, y)` or `(x, y, z)`.
+
+    :attr:`scale_value_center` is a :class:`~kivy.properties.ListProperty`
+    and defaults to `[]`.
+    """
+
+    binders: dict[str, FnBinder] = DictProperty()
+    """
+    Dictionary of binders attached to this widget.
+
+    Binders are reactive helpers declared in kv that subscribe to a store
+    address and update the widget when the state changes.
+
+    Each binder may optionally define a ``name``. If a name is provided,
+    the binder will be stored in this dictionary and can later be accessed
+    or disposed programmatically.
+
+    Example::
+
+        FnLabel:
+            FnBinder:
+                name: "email"
+                field: "text"
+                address: "user.email"
+
+    Accessing a binder::
+
+        widget.binders["email"].dispose()
+
+    If a binder does not define a ``name``, it will not be stored in
+    :attr:`binders`.
+
+    :attr:`binders` is a :class:`~kivy.properties.DictProperty`
+    and defaults to ``{}``.
+    """
+
+    background_origin = ListProperty(None)
 
     _background_x = NumericProperty(0)
     _background_y = NumericProperty(0)
@@ -192,7 +292,6 @@ class Style(Widget):
         super().__init__(**kwarg)
         self.bind(pos=self.update_background_origin)
 
-
     def update_background_origin(self, instance, pos: list) -> None:
         """Fired when the values of :attr:`pos` change."""
 
@@ -200,3 +299,19 @@ class Style(Widget):
             self._background_origin = self.background_origin
         else:
             self._background_origin = self.center
+
+    def add_widget(self, widget, index=0, canvas=None):
+        if isinstance(widget, FnBinder):
+            widget.owner = self
+            return
+
+        return super().add_widget(widget, index, canvas)
+
+    def _add_binder(self, name: str | None, binder: FnBinder):
+        if name is None:
+            return
+
+        if name in self.binders:
+            raise ValueError(f"Binder '{name}' already exists in {self}")
+
+        self.binders[name] = binder
