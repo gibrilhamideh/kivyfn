@@ -6,11 +6,12 @@ from ..address import Address
 
 if TYPE_CHECKING:
     from ..node import Node
-    from ..builder.config import BootConfig
+    from ..events.event import NodeEvent
+    from ..builder.config import StoreConfig
 
 
 class Engine:
-    def __init__(self, root: Node, config: BootConfig):
+    def __init__(self, root: Node, config: StoreConfig):
         self.root = root
         self.config = config
         self._schema_nodes: dict[str, Node] = {}
@@ -44,6 +45,10 @@ class Engine:
 
     def redo(self):
         pass
+
+    def dispatch(self, event: NodeEvent) -> None:
+        node = self.resolve(event.address)
+        node.dispatch(event)
 
     def to_disk(self, nodes: set[Node]):
         storage = self.config.storage

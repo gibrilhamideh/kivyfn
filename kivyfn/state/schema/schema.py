@@ -94,6 +94,7 @@ class Schema:
     @classmethod
     def defaults(cls) -> dict:
         data = {}
+
         for name, field in cls.fields().items():
             data[name] = getattr(field, "default", None)
 

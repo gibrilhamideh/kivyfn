@@ -27,5 +27,4 @@ def app_path(*parts: str) -> Path:
     """
     Path to developer's app directory.
     """
-    return project_root().joinpath("app", *parts)
-
+    return project_root().joinpath(*parts)

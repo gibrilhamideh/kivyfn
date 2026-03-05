@@ -307,7 +307,7 @@ class FnWidget(Widget):
 
         return super().add_widget(widget, index, canvas)
 
-    def _add_binder(self, name: str | None, binder: FnBinder):
+    def _register_binder(self, name: str | None, binder: FnBinder):
         if name is None:
             return
 

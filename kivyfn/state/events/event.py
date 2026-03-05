@@ -57,7 +57,7 @@ class NodeEvent:
     # ----------------------------
 
     def __repr__(self) -> str:
-        base = f"type={self.opcode.value!r}, address={self.address!r}"
+        base = f"opcode={self.opcode.value!r}, address={self.address!r}"
 
         if self.id is not None:
             base += f", id={self.id!r}"

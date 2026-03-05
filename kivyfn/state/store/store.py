@@ -10,25 +10,39 @@ from ..utils.visulization.text import render_state, render_structure
 if TYPE_CHECKING:
     from ..address import Address
     from ..node import Node
-    from ..builder.config import BootConfig
+    from ..builder.config import StoreConfig
     from ..events.subscription import Subscription
     from ..constants import InstructionOpCode
 
 
 class Store:
-    def __init__(self, root: Node, config: BootConfig):
+    def __init__(self) -> None:
+        self._engine: Engine | None = None
+
+    # -------------------------------------------------
+    # Boot
+    # -------------------------------------------------
+
+    def configure(self, root: Node, config: StoreConfig):
+        if self._engine is not None:
+            raise RuntimeError("Store is already configured")
+
         self._engine = Engine(root, config)
 
     def boot(self):
+        assert self._engine, "Store must be configured before use"
         self._engine.boot()
 
     def transaction(self) -> Transaction:
+        assert self._engine, "Store must be configured before use"
         return Transaction(self._engine)
 
     def undo(self):
+        assert self._engine, "Store must be configured before use"
         self._engine.undo()
 
     def redo(self):
+        assert self._engine, "Store must be configured before use"
         self._engine.redo()
 
     def subscribe(
@@ -46,6 +60,7 @@ class Store:
         Developers bind to a specific node via address.
         """
 
+        assert self._engine, "Store must be configured before use"
         node = self._engine.resolve(address)
 
         return node.subscribe(
@@ -105,6 +120,7 @@ class Store:
         depth:
             Max depth to render (None = unlimited)
         """
+        assert self._engine, "Store must be configured before use"
         root = self._engine.root
 
         if mode == "state":

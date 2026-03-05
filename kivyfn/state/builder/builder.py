@@ -4,10 +4,9 @@ from __future__ import annotations
 from typing import Optional, Set
 
 from .branch import Branch
-from .config import BootConfig
+from .config import StoreConfig
 
 from ..node import Node
-from ..store import Store
 
 
 class Builder:
@@ -77,26 +76,22 @@ class Builder:
     # Build Store
     # --------------------------------------------------------
 
-    def build(self) -> Store:
+    def build(self) -> tuple[Node, StoreConfig]:
         if self._built:
             raise RuntimeError("Builder can only build once")
 
         if self._root_branch is None:
             raise RuntimeError("No tree defined. Call .tree() first.")
 
-        # Validate tree structure
         self._validate_structure(self._root_branch)
 
-        # Convert Branch → Node
         root_node = self._build_node(self._root_branch)
 
-        config = BootConfig(self._storage, self._boot_policy)
-
-        # Create Store
-        store = Store(root_node, config)
+        config = StoreConfig(self._storage, self._boot_policy)
 
         self._built = True
-        return store
+
+        return root_node, config
 
     # --------------------------------------------------------
     # Internal Structure Validation

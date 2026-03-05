@@ -135,7 +135,7 @@ class FontManager(EventDispatcher):
         Each .ttf becomes available by its file stem.
         """
 
-        fonts_dir = app_path("fonts")
+        fonts_dir = app_path("resources", "fonts")
 
         if not fonts_dir.exists():
             return

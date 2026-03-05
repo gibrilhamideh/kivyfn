@@ -21,6 +21,7 @@ class TransactionResult:
     def __init__(
         self,
         *,
+        engine,
         success: bool,
         stage: str,
         compiled: list | None = None,
@@ -30,6 +31,8 @@ class TransactionResult:
         removed: list | None = None,
         updated: list | None = None,
     ):
+        self.__engine = engine
+
         self.success = success
         self.stage = stage
         self.compiled = compiled or []
@@ -39,6 +42,16 @@ class TransactionResult:
         self.inserted = inserted or []
         self.removed = removed or []
         self.updated = updated or []
+
+    def dispatch(self, event: NodeEvent):
+        self.__engine.dispatch(event)
+
+    def dispatch_all(self):
+        if not self.events:
+            return
+
+        for event in self.events:
+            self.__engine.dispatch(event)
 
     # -------------------------------------------------
     # Debug representation
@@ -242,7 +255,7 @@ class Transaction:
     # ----------------------------
     # Execute (only allowed for public Execution)
     # ----------------------------
-    def commit(self) -> TransactionResult:
+    def commit(self, dispatch=True) -> TransactionResult:
         if self._internal:
             raise EngineExecutionError("Internal execution cannot be executed directly")
 
@@ -255,6 +268,7 @@ class Transaction:
             compiled_ops = compiler.compile()
         except CompilerError as e:
             return TransactionResult(
+                engine=self.engine,
                 success=False,
                 stage="compile",
                 compiled=compiler.operations,
@@ -268,6 +282,7 @@ class Transaction:
             delta = Delta(self.engine, compiled_ops)
         except CompilerError as e:
             return TransactionResult(
+                engine=self.engine,
                 success=False,
                 stage="compile",
                 compiled=compiled_ops,
@@ -282,6 +297,7 @@ class Transaction:
             ConstraintGuard(self.engine).validate(delta)
         except ConstraintError as e:
             return TransactionResult(
+                engine=self.engine,
                 success=False,
                 stage="validate",
                 compiled=compiled_ops,
@@ -339,7 +355,8 @@ class Transaction:
         # --------------------------
         # Result
         # --------------------------
-        return TransactionResult(
+        result = TransactionResult(
+            engine=self.engine,
             success=True,
             stage="execute",
             compiled=compiled_ops,  # debug only
@@ -348,3 +365,8 @@ class Transaction:
             removed=removed,
             updated=updated,
         )
+
+        if dispatch:
+            result.dispatch_all()
+
+        return result

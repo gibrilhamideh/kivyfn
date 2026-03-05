@@ -89,7 +89,7 @@ class Node:
                     self.value[id] = cast
 
         else:
-            if isinstance(data, dict):
+            if isinstance(data, dict) and data:
                 cast = {}
                 for name, field in self.schema.fields().items():
                     try:
@@ -153,6 +153,7 @@ class Node:
             key=key,
         )
 
+        print("callback", callback)
         self._listeners[token] = listener
 
         return Subscription(self, token)
@@ -174,7 +175,6 @@ class Node:
             if callback is None:
                 dead_tokens.append(token)
                 continue
-
             if listener.matches(event):
                 callback(event)
 

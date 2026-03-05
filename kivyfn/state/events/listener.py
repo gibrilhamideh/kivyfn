@@ -68,6 +68,7 @@ class Listener:
         Fast filtering logic.
         """
 
+        # NOTE:: must implement all cases
         if self.opcode is not None and event.opcode is not self.opcode:
             return False
 
