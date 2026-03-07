@@ -3,7 +3,7 @@ from kivy.uix.screenmanager import Screen
 from ..primitives.widget import FnWidget
 
 
-class FnScreen(FnWidget, Screen):
+class FnScreen(Screen):
     __events__ = ("on_ready",)
 
     # ================================ #

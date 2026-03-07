@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from kivy.app import App
 from kivy.lang import Builder
 
-from kivyfn.resources import app_path
+from kivyfn.resources import app_resource
 from kivyfn.i18n import i18n
 from kivyfn.fonts import fonts
 from kivyfn.state import store
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 Builder.load_string(
     """
+#: import Factory kivy.factory.Factory
 #: import store kivyfn.state.store
 #: import Address kivyfn.state.Address
 #: import tr kivyfn.i18n.i18n
@@ -53,7 +54,7 @@ class FnApp(App):
         fonts.load()
 
     def _load_i18n(self):
-        locales_dir = self.config.locales_dir or app_path("resources", "locales")
+        locales_dir = self.config.locales_dir or app_resource("resources", "locales")
 
         i18n.configure(locales_dir)
 

@@ -4,9 +4,9 @@ from kivy.uix.label import Label
 from ..widget import FnWidget
 from ...behaviors.text import FnTextBehavior
 
-from ....resources import resource_path
+from ....resources import framework_resource
 
-kv_path = resource_path("ui", "primitives", "label", "label.kv")
+kv_path = framework_resource("ui", "primitives", "label", "label.kv")
 Builder.load_file(str(kv_path))
 
 

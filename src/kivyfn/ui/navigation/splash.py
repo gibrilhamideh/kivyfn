@@ -4,7 +4,7 @@ from kivy.properties import NumericProperty, StringProperty
 from ..primitives.widget import FnWidget
 
 
-class FnSplashScreen(FnWidget, Screen):
+class FnSplashScreen(Screen):
     len_screens: int = NumericProperty()
 
     __events__ = ("on_ready",)
@@ -16,9 +16,10 @@ class FnSplashScreen(FnWidget, Screen):
 
     def start(self, len_screens):
         self.len_screens = len_screens
+        self.dispatch("on_ready")
 
     def update(self, name, index):
-        pass
+        self.ready()
 
     def ready(self):
         self.dispatch("on_ready")
