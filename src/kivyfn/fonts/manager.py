@@ -112,7 +112,7 @@ class FontManager(EventDispatcher):
         self._registered.add(name)
 
     def _load_framework_fonts(self) -> None:
-        fonts_dir = framework_resource("resources", "fonts")
+        fonts_dir = framework_resource("kivyfn", "resources", "fonts")
 
         # --- Default UI font
         self._register(

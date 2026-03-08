@@ -8,8 +8,8 @@ developer application assets.
 The framework operates with two distinct resource origins:
 
 1. Framework resources
-   Files that ship with the ``kivyfn`` package itself such as fonts,
-   shaders, icons, kv templates, etc.
+   Files that ship with framework packages such as ``kivyfn``,
+   ``kivyfn.ui`` or other extension modules.
 
 2. Application resources
    Files that belong to the developer's application such as images,
@@ -26,7 +26,12 @@ Accessing a framework asset::
 
     from kivyfn.resources import framework_resource
 
-    font_path = framework_resource("resources", "fonts", "NotoSans-Regular.ttf")
+    font_path = framework_resource(
+        "kivyfn.ui",
+        "resources",
+        "fonts",
+        "NotoSans-Regular.ttf"
+    )
 
 
 Accessing an application asset::
@@ -40,6 +45,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from importlib import resources
 
 
 # ---------------------------------------------------------------------
@@ -60,18 +66,22 @@ def _runtime_root() -> Path | None:
 
 
 # ---------------------------------------------------------------------
-# Public API
+# Framework resources
 # ---------------------------------------------------------------------
 
 
-def framework_resource(*parts: str) -> Path:
+def framework_resource(package: str, *parts: str) -> Path:
     """
-    Resolve a path to a resource bundled with the ``kivyfn`` framework.
+    Resolve a path to a resource bundled with a framework package.
 
     Parameters
     ----------
+    package:
+        Python package containing the resource
+        (e.g. ``"kivyfn.ui"`` or ``"kivyfn.threed"``).
+
     *parts:
-        Path components relative to the framework package root.
+        Path components relative to the package root.
 
     Returns
     -------
@@ -80,18 +90,27 @@ def framework_resource(*parts: str) -> Path:
 
     Notes
     -----
-    This works both in development environments and when the application
-    is bundled with PyInstaller.
+    This works for:
+
+    - normal development environments
+    - installed packages
+    - namespace packages
+    - PyInstaller bundles
     """
 
     runtime = _runtime_root()
 
     if runtime:
-        base = runtime / "kivyfn"
-    else:
-        base = Path(__file__).resolve().parent
+        base = runtime / package.replace(".", "/")
+        return base.joinpath(*parts)
 
-    return base.joinpath(*parts)
+    base = resources.files(package)
+    return Path(base.joinpath(*parts))  # pyright: ignore
+
+
+# ---------------------------------------------------------------------
+# Application resources
+# ---------------------------------------------------------------------
 
 
 def app_resource(*parts: str) -> Path:
@@ -123,4 +142,3 @@ def app_resource(*parts: str) -> Path:
         base = Path(sys.argv[0]).resolve().parent
 
     return base.joinpath(*parts)
-

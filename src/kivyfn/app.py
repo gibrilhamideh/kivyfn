@@ -1,21 +1,24 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+import importlib
+
 from kivy.app import App
 from kivy.lang import Builder
 
-from kivyfn.resources import app_resource
-from kivyfn.i18n import i18n
-from kivyfn.fonts import fonts
-from kivyfn.state import store
-from kivyfn.settings import AppSettings
+
+from .resources import app_resource
+from .i18n import i18n
+from .fonts import fonts
+from .state import store
+from .settings import AppSettings
 
 if TYPE_CHECKING:
     from .config import AppConfig
 
-
 Builder.load_string(
     """
+#: import RelativeLayout kivy.uix.relativelayout.RelativeLayout
 #: import Factory kivy.factory.Factory
 #: import store kivyfn.state.store
 #: import Address kivyfn.state.Address
@@ -39,6 +42,7 @@ class FnApp(App):
     # -------------------------------------------------
 
     def _bootstrap(self):
+        self._load_modules()
         self._load_settings()
         self._load_fonts()
         self._load_i18n()
@@ -70,3 +74,19 @@ class FnApp(App):
 
         store.configure(root_node, store_config)
         store.boot()
+
+    def _load_modules(self):
+        # core bootstrap (always exists)
+        from kivyfn.bootstrap import bootstrap  # pyright: ignore
+
+        bootstrap()
+
+        # optional modules
+        self._try_module("kivyfn.ui.bootstrap")
+
+    def _try_module(self, module: str) -> None:
+        try:
+            m = importlib.import_module(module)
+            m.bootstrap()
+        except ModuleNotFoundError:
+            pass
