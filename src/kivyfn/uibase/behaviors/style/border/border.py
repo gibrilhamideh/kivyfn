@@ -1,33 +1,4 @@
-from kivy.lang import Builder
 from kivy.properties import ColorProperty, NumericProperty, VariableListProperty
-
-Builder.load_string(
-    """
-<FnBorderBehavior>
-    canvas.before:
-        Color:
-            rgba: (0, 0, 0, 0) if root.border_color is None else root.border_color
-
-        SmoothLine:
-            width: root.border_width
-            rounded_rectangle:
-                [ \
-                0, \
-                0, \
-                root.width, \
-                root.height, \
-                *root.radius \
-                ] \
-                if isinstance(root, RelativeLayout) else \
-                [ \
-                root.x, \
-                root.y, \
-                root.width, \
-                root.height, \
-                *root.radius \
-                ]
-"""
-)
 
 
 class FnBorderBehavior:

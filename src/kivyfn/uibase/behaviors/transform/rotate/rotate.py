@@ -1,22 +1,4 @@
-from kivy.lang import Builder
 from kivy.properties import ListProperty, NumericProperty
-
-Builder.load_string(
-    """
-<FnRotateBehavior>
-    canvas.before:
-        PushMatrix
-        Rotate:
-            angle: root.rotate_angle
-            axis: tuple(root.rotate_axis)
-            origin:
-                root.center \
-                if not root.rotate_center else \
-                root.rotate_center
-    canvas.after:
-        PopMatrix
-"""
-)
 
 
 class FnRotateBehavior:

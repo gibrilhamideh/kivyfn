@@ -1,0 +1,11 @@
+<FnBackgroundBehavior>
+    canvas.before:
+
+        Color:
+            rgba: root.background_color
+
+        SmoothRoundedRectangle:
+            size: root.size
+            pos: root.pos if not isinstance(root, RelativeLayout) else (0, 0)
+            radius: root.radius
+            source: root.background

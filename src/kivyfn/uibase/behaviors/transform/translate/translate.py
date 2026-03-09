@@ -1,19 +1,4 @@
-from kivy.lang import Builder
 from kivy.properties import NumericProperty
-
-Builder.load_string(
-    """
-<FnTranslateBehavior>
-    canvas.before:
-        PushMatrix
-        Translate:
-            x: root.translate_x
-            y: root.translate_y
-            z: root.translate_z
-    canvas.after:
-        PopMatrix
-"""
-)
 
 
 class FnTranslateBehavior:

@@ -1,0 +1,13 @@
+<FnRotateBehavior>
+    canvas.before:
+        PushMatrix
+        Rotate:
+            angle: root.rotate_angle
+            axis: tuple(root.rotate_axis)
+            origin:
+                root.center \
+                if not root.rotate_center else \
+                root.rotate_center
+    canvas.after:
+        PopMatrix
+

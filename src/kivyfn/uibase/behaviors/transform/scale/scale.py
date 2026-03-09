@@ -1,23 +1,4 @@
-from kivy.lang import Builder
 from kivy.properties import ListProperty, NumericProperty
-
-Builder.load_string(
-    """
-<FnScaleBehavior>
-    canvas.before:
-        PushMatrix
-        Scale:
-            x: root.scale_x
-            y: root.scale_y
-            z: root.scale_z
-            origin:
-                root.center \
-                if not root.scale_center else \
-                root.scale_center
-    canvas.after:
-        PopMatrix
-"""
-)
 
 
 class FnScaleBehavior:
@@ -63,4 +44,3 @@ class FnScaleBehavior:
     :attr:`scale_center` is a :class:`~kivy.properties.ListProperty`
     and defaults to ``[]``.
     """
-
