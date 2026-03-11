@@ -27,7 +27,11 @@ def register():
 
     path = framework_resource("kivyfn", "uibase", "behaviors")
 
-    # ---) trssform behaviors
+    # ---) transform behaviors
+    Builder.load_file(str(path / "canvas" / "override" / "override.kv"))
+    Builder.load_file(str(path / "canvas" / "clip" / "clip.kv"))
+
+    # ---) transform behaviors
     Builder.load_file(str(path / "transform" / "scale" / "scale.kv"))
     Builder.load_file(str(path / "transform" / "rotate" / "rotate.kv"))
     Builder.load_file(str(path / "transform" / "translate" / "translate.kv"))

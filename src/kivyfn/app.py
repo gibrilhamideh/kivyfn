@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 Builder.load_string(
     """
+#: import Animation kivy.animation.Animation
 #: import RelativeLayout kivy.uix.relativelayout.RelativeLayout
 #: import Factory kivy.factory.Factory
 #: import store kivyfn.state.store
