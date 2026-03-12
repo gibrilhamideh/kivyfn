@@ -1,0 +1,1 @@
+from .segmented import FnSegmentedFieldBehavior
