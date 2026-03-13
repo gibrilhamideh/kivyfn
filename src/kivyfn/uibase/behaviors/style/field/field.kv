@@ -1,0 +1,15 @@
+<FnFieldBehavior>
+    canvas.before:
+        # cursor
+        Color:
+            rgba: self.cursor_color
+
+        Rectangle:
+            group: "rectangle-cursor-blink"
+            pos: (int(x) for x in self.cursor_pos)
+            size: self.cursor_width, -self.line_height
+
+        # textcolor
+        Color:
+            group: "text-color"
+            rgba: self.color

@@ -40,3 +40,4 @@ def register():
     Builder.load_file(str(path / "style" / "elevation" / "elevation.kv"))
     Builder.load_file(str(path / "style" / "background" / "background.kv"))
     Builder.load_file(str(path / "style" / "border" / "border.kv"))
+    Builder.load_file(str(path / "style" / "field" / "field.kv"))
