@@ -46,7 +46,7 @@ class FnFieldBaseBehavior:
         return self._get_value()
 
     def _alias_set(self, value):
-        return self._set_value(value)
+        self._set_value(value)
 
     value = AliasProperty(
         _alias_get,
@@ -58,7 +58,6 @@ class FnFieldBaseBehavior:
     # ---------------------------------------------------------
     # Validation Hooks
     # ---------------------------------------------------------
-
     def validate_char(self, char: str) -> bool:
         """
         Character-level validation.

@@ -2,14 +2,28 @@ from __future__ import annotations
 
 from kivy.clock import Clock
 from kivy.properties import (
+    NumericProperty,
     BooleanProperty,
     ListProperty,
     OptionProperty,
     StringProperty,
+    ColorProperty,
+    VariableListProperty,
+    DictProperty,
 )
+from kivy.graphics import Color
+from kivy.graphics.vertex_instructions import SmoothRoundedRectangle
+from kivy.graphics.vertex_instructions import SmoothLine
+
 from .field import FnFieldBaseBehavior
+# editable_segments
+# sequential
+# focus_first_empty
+# format_partial
+# unfocus_on_fill
 
 
+# _format, edtibale_segemnts, sequential segments
 class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     lengths = ListProperty([])
     separator = StringProperty(":")
@@ -22,6 +36,17 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     unfocus_on_fill = BooleanProperty(False)
 
     segments = ListProperty([])
+
+    slot_visuals = BooleanProperty(True)
+    slot_background_color = ColorProperty((1, 0, 0, 0.2))
+    slot_border_color = ColorProperty((0, 0, 0, 0))
+    slot_background_focused_color = ColorProperty((0, 0, 0, 0))
+    slot_border_focused_color = ColorProperty((0, 1, 0, 0.2))
+    slot_border_width = NumericProperty(1)
+    slot_radius = VariableListProperty([0], length=4)
+    slot_padding = NumericProperty(5)
+
+    _slot_graphics = DictProperty({})
 
     _active_segment = 0
     _active_char = 0
@@ -44,6 +69,10 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         self.cursor_blink = False
 
         self._rebuild_all()
+
+        if self.slot_visuals:
+            self._create_slots_graphics()
+            self._schedule_slots_update()
 
     # ---------------------------------------------------------
     # Segment utilities
@@ -156,9 +185,107 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         self._highlight_ev = Clock.schedule_once(lambda *_: self._highlight(), 0)
 
     # ---------------------------------------------------------
+    # Slot graphics
+    # ---------------------------------------------------------
+    def _create_slots_graphics(self):
+        # avoid recreating graphics
+        if self._slot_graphics:
+            return
+        with self.canvas.after:
+            for slot in self._editable_positions.keys():
+                # background
+                bg_color = Color(*self.slot_background_color)
+
+                bg = SmoothRoundedRectangle(
+                    pos=(0, 0),
+                    size=(0, 0),
+                    radius=self.slot_radius,
+                )
+
+                # border
+                border_color = Color(*self.slot_border_color)
+
+                border = SmoothLine(
+                    width=self.slot_border_width,
+                    rounded_rectangle=[0, 0, 0, 0, *self.slot_radius],
+                )
+
+                self._slot_graphics[slot] = {
+                    "bg_color": bg_color,
+                    "bg": bg,
+                    "border_color": border_color,
+                    "border": border,
+                }
+
+    def _schedule_slots_update(self):
+        Clock.schedule_once(self._update_slots_graphics, 0)
+
+    def _update_slots_graphics(self, *_):
+        # nothing to update
+        if not self._slot_graphics:
+            return
+
+        for slot, graphics in self._slot_graphics.items():
+            index = self._editable_positions.get(slot)
+
+            if index is None:
+                continue
+
+            # index -> cursor location
+            col, row = self.get_cursor_from_index(index)
+
+            # temporarily move cursor to compute pixel position
+            old_cursor = self.cursor
+            self.cursor = (col, row)
+            x, y = self.cursor_pos
+            y -= self.line_height
+            self.cursor = old_cursor
+
+            # slot size based on glyph metrics
+            glyph_width = self._get_text_width("0", self.tab_width, self._label_cached)
+
+            slot_width = glyph_width + (self.slot_padding * 2)
+            slot_height = self.line_height + (self.slot_padding * 2)
+
+            # offset so slot surrounds glyph
+            x -= self.slot_padding
+            y -= self.slot_padding
+
+            # update background rectangle
+            graphics["bg"].pos = (x, y)
+            graphics["bg"].size = (slot_width, slot_height)
+
+            # update border
+            graphics["border"].rounded_rectangle = [
+                x,
+                y,
+                slot_width,
+                slot_height,
+                *self.slot_radius,
+            ]
+
+    def _update_slot_style(self):
+        if not self._slot_graphics:
+            return
+
+        active = (self._active_segment, self._active_char)
+
+        for slot, graphics in self._slot_graphics.items():
+            if slot == active:
+                graphics["bg_color"].rgba = self.slot_background_focused_color
+                graphics["border_color"].rgba = self.slot_border_focused_color
+            else:
+                graphics["bg_color"].rgba = self.slot_background_color
+                graphics["border_color"].rgba = self.slot_border_color
+
+    def _unfocus_slots(self):
+        for graphics in self._slot_graphics.values():
+            graphics["bg_color"].rgba = self.slot_background_color
+            graphics["border_color"].rgba = self.slot_border_color
+
+    # ---------------------------------------------------------
     # Slot navigation
     # ---------------------------------------------------------
-
     def _slot_move(self, seg, char, direction):
         idx = self._slot_order_index.get((seg, char))
 
@@ -206,6 +333,9 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         else:
             self._highlight()
 
+        if self.slot_visuals:
+            self._update_slot_style()
+
     # ---------------------------------------------------------
     # Editing
     # ---------------------------------------------------------
@@ -239,9 +369,8 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
             return
 
         self.segments = dummy
-        self._active_segment = seg
-        self._active_char = char
 
+        self._set_active(seg, char)
         self._render()
         self._highlight()
 
@@ -262,9 +391,7 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
             seg, char = prev
             self.segments[seg][char] = None
 
-        self._active_segment = seg
-        self._active_char = char
-
+        self._set_active(seg, char)
         self._render()
         self._highlight()
 
@@ -312,6 +439,7 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         if value:
             self._render()
         else:
+            self._unfocus_slots()
             self._format()
 
     def on_touch_up(self, touch):
@@ -357,7 +485,6 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     # ---------------------------------------------------------
     # Property updates
     # ---------------------------------------------------------
-
     def on_lengths(self, *_):
         self._rebuild_all()
 
@@ -370,21 +497,23 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     def on_placeholder(self, *_):
         self._rebuild_all()
 
-    def on_segment_direction(self, *_):
-        self._rebuild_all()
+    def on_size(self, *args):
+        self._schedule_slots_update()
 
-    def on_segment_fill_direction(self, *_):
-        self._rebuild_all()
+    def on_pos(self, *args):
+        self._schedule_slots_update()
 
-    # ---------------------------------------------------------
-    # Public value
-    # ---------------------------------------------------------
+    def on_text(self, *args):
+        self._schedule_slots_update()
 
-    def get_value(self):
-        result = []
+    def on_slot_background_color(self, *_):
+        self._update_slot_style()
 
-        for seg in self.segments:
-            raw = "".join(ch for ch in seg if ch)
-            result.append(raw if raw else None)
+    def on_slot_border_color(self, *_):
+        self._update_slot_style()
 
-        return tuple(result)
+    def on_slot_background_focused_color(self, *_):
+        self._update_slot_style()
+
+    def on_slot_border_focused_color(self, *_):
+        self._update_slot_style()
