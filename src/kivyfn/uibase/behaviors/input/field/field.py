@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, Callable
 from kivy.properties import AliasProperty, BooleanProperty, ObjectProperty
 
 
@@ -19,34 +19,37 @@ class FnFieldBaseBehavior:
     # ---------------------------------------------------------
     # Public Properties
     # ---------------------------------------------------------
-
     valid = BooleanProperty(False)
 
     revert_on_invalid = BooleanProperty(True)
 
     default: Any = ObjectProperty(None, allownone=True)
 
+    formater: Callable = ObjectProperty(None, allownone=True)
+
     # ---------------------------------------------------------
     # Internal Properties
     # ---------------------------------------------------------
-    _value: Any = None
     _cached_value = ObjectProperty(None, allownone=True)
 
     # ---------------------------------------------------------
     # Value API (must be implemented by subclasses)
     # ---------------------------------------------------------
-    #
     def _get_value(self):
-        return self._value
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement _get_value()"
+        )
 
-    def _set_value(self, value):
-        self._value = value
+    def _set_value(self, value, from_cache=False):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement _set_value()"
+        )
 
     def _alias_get(self):
         return self._get_value()
 
     def _alias_set(self, value):
-        self._set_value(value)
+        return self._set_value(value)
 
     value = AliasProperty(
         _alias_get,
@@ -101,22 +104,31 @@ class FnFieldBaseBehavior:
     # ---------------------------------------------------------
     # Focus Handling
     # ---------------------------------------------------------
+    def _on_textinput_focused(self, instance, focused, *largs):
+        super()._on_textinput_focused(instance, focused, *largs)  # pyright: ignore
 
-    def on_focus(self, instance, focused):
         if focused:
-            self._cached_value = self.value
             self.valid = True
             return
 
-        value = self.value
-        valid = self.validate_value(value)
+        new_value = self._get_value()
+        valid = self.validate_value(new_value)
 
-        if not valid and self.revert_on_invalid:
-            self.value = self._cached_value
-            self.valid = True
-        else:
-            self.valid = valid
-            self.dispatch("on_commit", value)
+        if not valid:
+            if self.revert_on_invalid:
+                self._set_value(self._cached_value, from_cache=True)
+                self.valid = True
+            else:
+                self.valid = False
+
+            return
+
+        self.valid = True
+
+        # Only commit if value actually changed
+        if new_value != self._cached_value:
+            self.value = new_value
+            self.dispatch("on_commit", new_value)  # pyright: ignore
 
     def on_commit(self, value):
         pass

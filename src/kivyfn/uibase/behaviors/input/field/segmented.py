@@ -10,17 +10,13 @@ from kivy.properties import (
     ColorProperty,
     VariableListProperty,
     DictProperty,
+    AliasProperty,
 )
 from kivy.graphics import Color
 from kivy.graphics.vertex_instructions import SmoothRoundedRectangle
 from kivy.graphics.vertex_instructions import SmoothLine
 
 from .field import FnFieldBaseBehavior
-# editable_segments
-# sequential
-# focus_first_empty
-# format_partial
-# unfocus_on_fill
 
 
 # _format, edtibale_segemnts, sequential segments
@@ -30,14 +26,16 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     spacing = StringProperty("")
     placeholder = StringProperty("_")
 
+    segments = ListProperty([])
+
     segment_direction = OptionProperty("left", options=["left", "right"])
     segment_fill_direction = OptionProperty("left", options=["left", "right"])
+    editable_segments = ListProperty(None, allownone=True)
+    sequential = BooleanProperty(False)
 
     unfocus_on_fill = BooleanProperty(False)
 
-    segments = ListProperty([])
-
-    slot_visuals = BooleanProperty(True)
+    slot_visuals = BooleanProperty(False)
     slot_background_color = ColorProperty((1, 0, 0, 0.2))
     slot_border_color = ColorProperty((0, 0, 0, 0))
     slot_background_focused_color = ColorProperty((0, 0, 0, 0))
@@ -48,25 +46,47 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
     _slot_graphics = DictProperty({})
 
-    _active_segment = 0
-    _active_char = 0
+    def _get_is_complete(self):
+        if not self.segments:
+            return False
 
-    _editable_positions = {}
-    _slot_order = []
-    _slot_order_index = {}
+        for seg in self.segments:
+            for ch in seg:
+                if ch is None:
+                    return False
 
-    _highlight_ev = None
+        return True
+
+    completed = AliasProperty(
+        _get_is_complete,
+        None,
+        bind=("value",),
+    )
 
     # ---------------------------------------------------------
     # Initialization
     # ---------------------------------------------------------
+    def __init__(self, **kwargs) -> None:
+        self._active_ev = None
+        self._active_segment = 0
+        self._active_char = 0
+
+        self._editable_positions = {}
+        self._slot_order = []
+        self._slot_order_index = {}
+
+        self._highlight_ev = None
+        super().__init__(**kwargs)
 
     def on_kv_post(self, base_widget):
-        super().on_kv_post(base_widget)
+        super().on_kv_post(base_widget)  # pyright: ignore
 
         self.multiline = False
         self.cursor_width = 0
         self.cursor_blink = False
+
+        if self.default is not None and self.value is None:
+            self.value = self.default
 
         self._rebuild_all()
 
@@ -113,11 +133,18 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         order = []
 
         for seg in self._segment_indices():
+            if not self._segment_editable(seg):
+                continue
             for ch in self._char_indices(seg):
                 order.append((seg, ch))
 
         self._slot_order = order
         self._slot_order_index = {slot: i for i, slot in enumerate(order)}
+
+    def _segment_editable(self, seg):
+        if self.editable_segments is None:
+            return True
+        return seg in self.editable_segments
 
     # ---------------------------------------------------------
     # Rendering
@@ -157,26 +184,23 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
         self.text = "".join(parts)
 
-    def _format(self):
-        pass
-
     # ---------------------------------------------------------
     # Highlight
     # ---------------------------------------------------------
 
     def _highlight(self):
         if not self.focus:
-            self.cancel_selection()
+            self.cancel_selection()  # pyright: ignore
             return
 
         pos = self._editable_positions.get((self._active_segment, self._active_char))
 
         if pos is None:
-            self.cancel_selection()
+            self.cancel_selection()  # pyright: ignore
             return
 
         self.cursor = (pos, 0)
-        self.select_text(pos, pos + 1)
+        self.select_text(pos, pos + 1)  # pyright: ignore
 
     def _schedule_highlight(self):
         if self._highlight_ev:
@@ -191,7 +215,7 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         # avoid recreating graphics
         if self._slot_graphics:
             return
-        with self.canvas.after:
+        with self.canvas.after:  # pyright: ignore
             for slot in self._editable_positions.keys():
                 # background
                 bg_color = Color(*self.slot_background_color)
@@ -232,20 +256,20 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
                 continue
 
             # index -> cursor location
-            col, row = self.get_cursor_from_index(index)
+            col, row = self.get_cursor_from_index(index)  # pyright: ignore
 
             # temporarily move cursor to compute pixel position
             old_cursor = self.cursor
             self.cursor = (col, row)
-            x, y = self.cursor_pos
-            y -= self.line_height
+            x, y = self.cursor_pos  # pyright: ignore
+            y -= self.line_height  # pyright: ignore
             self.cursor = old_cursor
 
             # slot size based on glyph metrics
-            glyph_width = self._get_text_width("0", self.tab_width, self._label_cached)
+            glyph_width = self._get_text_width("0", self.tab_width, self._label_cached)  # pyright: ignore
 
             slot_width = glyph_width + (self.slot_padding * 2)
-            slot_height = self.line_height + (self.slot_padding * 2)
+            slot_height = self.line_height + (self.slot_padding * 2)  # pyright: ignore
 
             # offset so slot surrounds glyph
             x -= self.slot_padding
@@ -317,29 +341,60 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
         return None
 
+    def _first_empty_slot(self):
+        for seg, char in self._slot_order:
+            if self.segments[seg][char] is None:
+                return seg, char
+
+        # if all slots are filled
+        if self._slot_order:
+            return self._slot_order[-1]
+
+        return None
+
+    def _slot_index(self, seg, char):
+        return self._slot_order_index.get((seg, char), -1)
+
     # ---------------------------------------------------------
     # Active slot
     # ---------------------------------------------------------
 
     def _set_active(self, seg, char, defer=False):
-        seg = max(0, min(seg, len(self.lengths) - 1))
-        char = max(0, min(char, self.lengths[seg] - 1))
+        idx = self._slot_order_index.get((seg, char))
 
-        self._active_segment = seg
-        self._active_char = char
+        if idx is None:
+            return
 
-        if defer:
-            self._schedule_highlight()
-        else:
+        if self.sequential:
+            first_empty = self._first_empty_slot()
+
+            if first_empty:
+                first_empty_idx = self._slot_order_index.get(first_empty, -1)
+
+                # block moving past first empty slot
+                if idx > first_empty_idx:
+                    return
+
+        def apply():
+            if not self.focus:
+                return
+
+            self._active_segment = seg
+            self._active_char = char
+
             self._highlight()
 
-        if self.slot_visuals:
-            self._update_slot_style()
+            if self.slot_visuals:
+                self._update_slot_style()
+
+        if self._active_ev:
+            self._active_ev.cancel()
+
+        self._active_ev = Clock.schedule_once(lambda *_: apply(), 0)
 
     # ---------------------------------------------------------
     # Editing
     # ---------------------------------------------------------
-
     def insert_text(self, substring, from_undo=False):
         seg = self._active_segment
         char = self._active_char
@@ -398,62 +453,107 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     # ---------------------------------------------------------
     # Keyboard
     # ---------------------------------------------------------
-
     def keyboard_on_key_down(self, window, keycode, text, modifiers):
         if not self.focus:
-            return super().keyboard_on_key_down(window, keycode, text, modifiers)
+            return super().keyboard_on_key_down(window, keycode, text, modifiers)  # pyright: ignore
 
         key = keycode[0]
 
+        # ---------------------------------------------------------
+        # Backspace
+        # ---------------------------------------------------------
         if key == 8:
             self.do_backspace()
             return True
 
-        if key == 276:
-            prev = self._visual_prev(self._active_segment, self._active_char)
-            if prev:
-                self._set_active(*prev)
-            return True
-
-        if key == 275:
-            nxt = self._visual_next(self._active_segment, self._active_char)
+        # ---------------------------------------------------------
+        # Tab / Shift+Tab navigation
+        # ---------------------------------------------------------
+        if key == 9:
+            direction = -1 if "shift" in modifiers else 1
+            nxt = self._slot_move(self._active_segment, self._active_char, direction)
             if nxt:
                 self._set_active(*nxt)
             return True
 
-        return super().keyboard_on_key_down(window, keycode, text, modifiers)
-
-    def keyboard_on_textinput(self, window, text):
-        if self.focus:
-            self.insert_text(text)
+        # ---------------------------------------------------------
+        # Space → move forward
+        # ---------------------------------------------------------
+        if key == 32:
+            nxt = self._slot_move(self._active_segment, self._active_char, 1)
+            if nxt:
+                self._set_active(*nxt)
             return True
 
-        super().keyboard_on_textinput(window, text)
+        # ---------------------------------------------------------
+        # Arrow Left
+        # ---------------------------------------------------------
+        if key == 276:
+            prev = self._slot_move(self._active_segment, self._active_char, -1)
+            if prev:
+                self._set_active(*prev)
+            return True
+
+        # ---------------------------------------------------------
+        # Arrow Right
+        # ---------------------------------------------------------
+        if key == 275:
+            nxt = self._slot_move(self._active_segment, self._active_char, 1)
+            if nxt:
+                self._set_active(*nxt)
+            return True
+
+        return super().keyboard_on_key_down(window, keycode, text, modifiers)  # pyright: ignore
+
+    def keyboard_on_textinput(self, window, text):
+        if not self.focus:
+            return super().keyboard_on_textinput(window, text)
+
+        # consume navigation characters
+        if text == " " or text == "\t":
+            return True
+
+        self.insert_text(text)
+        return True
 
     # ---------------------------------------------------------
     # Mouse
     # ---------------------------------------------------------
-    def _on_textinput_focused(self, instance, value, *largs):
+    def _on_textinput_focused(self, instance, value, *largs):  # pyright: ignore
         super()._on_textinput_focused(instance, value, *largs)
 
         if value:
             self._render()
+
+            if self.sequential:
+                slot = self._first_empty_slot()
+                if slot:
+                    self._set_active(*slot, defer=True)
+
         else:
             self._unfocus_slots()
-            self._format()
+            if callable(self.formater):
+                self.text = self.formater(self)
 
     def on_touch_up(self, touch):
-        handled = super().on_touch_up(touch)
+        handled = super().on_touch_up(touch)  # pyright: ignore
 
-        if self.collide_point(*touch.pos) and self.focus:
-            col, _ = self.get_cursor_from_xy(*touch.pos)
+        if self.collide_point(*touch.pos) and self.focus:  # pyright: ignore
+            if self.sequential:
+                slot = self._first_empty_slot()
+                if slot:
+                    self._set_active(*slot)
+                return True
+
+            # normal non-sequential behavior
+            col, _ = self.get_cursor_from_xy(*touch.pos)  # pyright: ignore
 
             best = min(
                 self._editable_positions.items(),
                 key=lambda x: abs(col - x[1]),
             )[0]
 
-            self._set_active(*best, defer=True)
+            self._set_active(*best)
 
             return True
 
