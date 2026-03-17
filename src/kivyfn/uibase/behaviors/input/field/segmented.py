@@ -318,7 +318,7 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
             if i == last_index:
                 continue
 
-            next_text, next_slot_ref = tokens[i + 1]
+            _, next_slot_ref = tokens[i + 1]
 
             # determine spacing
             if slot_ref is not None and next_slot_ref is not None:
@@ -329,7 +329,15 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
             parts.append(spacing)
             position += len(spacing)
 
-        self.text = "".join(parts)
+        text = "".join(parts)
+        if callable(self.formater) and not self.focus:
+            formatted = self.formater(text, self.value, self.completed)
+            if isinstance(formatted, str):
+                self.text = formatted
+            else:
+                self.text = text
+        else:
+            self.text = text
 
     # ---------------------------------------------------------
     # Rebuild
@@ -516,8 +524,8 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
         self.segments = updated
 
-        self._set_active_slot(seg, slot)
         self._render()
+        self._set_active_slot(seg, slot)
 
     # ---------------------------------------------------------
     # Keyboard
@@ -590,8 +598,8 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
             seg, slot = prev
             self.segments[seg][slot] = None
 
-        self._set_active_slot(seg, slot)
         self._render()
+        self._set_active_slot(seg, slot)
 
     # ---------------------------------------------------------
     # Focus
@@ -609,8 +617,6 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
         else:
             self._unfocus_slots()
-            if callable(self.formater):
-                self.text = self.formater(self)
 
     # ---------------------------------------------------------
     # Mouse
