@@ -21,11 +21,15 @@ from .field import FnFieldBaseBehavior
 
 # _format, edtibale_segemnts, sequential segments
 class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
+    segments = ListProperty([])
     lengths = ListProperty([])
     separator = StringProperty(":")
     placeholder = StringProperty("_")
-
-    segments = ListProperty([])
+    jump_chars = ListProperty()
+    fill_mode = OptionProperty(
+        "sequential",
+        options=["sequential", "fill"],
+    )
 
     segment_spacing = NumericProperty(0)
     segment_direction = OptionProperty("left", options=["left", "right"])
@@ -331,7 +335,7 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
         text = "".join(parts)
         if callable(self.formater) and not self.focus:
-            formatted = self.formater(text, self.value, self.completed)
+            formatted = self.formater(text, self.value)
             if isinstance(formatted, str):
                 self.text = formatted
             else:
@@ -361,8 +365,25 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
             self._create_slots_graphics()
 
     # ---------------------------------------------------------
-    # Slot navigation
+    # Navigation
     # ---------------------------------------------------------
+    def _move_segment(self, direction):
+        segments = self._get_segment_indices()
+
+        try:
+            idx = segments.index(self._active_segment)
+        except ValueError:
+            return
+
+        idx += direction
+
+        if 0 <= idx < len(segments):
+            new_seg = segments[idx]
+
+            # go to first slot in that segment (respect fill direction)
+            slots = self._get_slot_indices(new_seg)
+            self._set_active_slot(new_seg, slots[0])
+
     def _move_slot(self, direction):
         nxt = self._get_adjacent_slot(
             self._active_segment, self._active_slot, direction
@@ -580,6 +601,10 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
         # consume navigation characters
         if text == " " or text == "\t":
+            return True
+
+        if text in self.jump_chars:
+            self._move_segment(1)
             return True
 
         self.insert_text(text)
