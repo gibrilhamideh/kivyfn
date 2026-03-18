@@ -35,7 +35,7 @@ class FnFieldBaseBehavior:
     # ---------------------------------------------------------
     # Value API (must be implemented by subclasses)
     # ---------------------------------------------------------
-    def _get_value(self):
+    def _get_value(self) -> Any:
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement _get_value()"
         )
@@ -71,23 +71,14 @@ class FnFieldBaseBehavior:
         """
         return True
 
-    def validate_segment(self, index: int, chars: list[str]) -> bool:
+    def validate_edit(self, before: Any, after: Any, chars: str | None = None) -> bool:
         """
-        Segment-level validation.
+        Validate any edit operation.
 
-        Used by segmented fields.
+        `before` is the current value, `after` is the proposed value.
+        `chars` contains inserted text, or None for deletions.
 
-        Default: allow everything.
-        """
-        return True
-
-    def validate_partial(self, value: Any) -> bool:
-        """
-        Validation during editing.
-
-        Allows temporary states while typing.
-
-        Default: allow everything.
+        Return True to allow the edit, False to reject it.
         """
         return True
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from kivy.clock import Clock
 from kivy.properties import (
     NumericProperty,
@@ -25,11 +27,6 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     lengths = ListProperty([])
     separator = StringProperty(":")
     placeholder = StringProperty("_")
-    jump_chars = ListProperty()
-    fill_mode = OptionProperty(
-        "sequential",
-        options=["sequential", "fill"],
-    )
 
     segment_spacing = NumericProperty(0)
     segment_direction = OptionProperty("left", options=["left", "right"])
@@ -515,17 +512,36 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
     # ---------------------------------------------------------
     # Editing
     # ---------------------------------------------------------
+    def transform_char(self, char: str) -> str | None:
+        """
+        Transform a character before validation.
+
+        Return:
+            - transformed character (e.g. uppercase)
+            - None to discard the character
+        """
+        return char
+
     def insert_text(self, substring, from_undo=False):
         seg = self._active_segment
         slot = self._active_slot
 
-        updated = [s.copy() for s in self.segments]
+        before = deepcopy(self.segments)
+        updated = deepcopy(self.segments)
+
+        accepted = []
 
         for ch in substring:
+            ch = self.transform_char(ch)
+
+            if not ch:
+                continue
+
             if not self.validate_char(ch):
                 continue
 
             updated[seg][slot] = ch
+            accepted.append(ch)
 
             nxt = self._get_adjacent_slot(seg, slot, 1)
 
@@ -536,15 +552,15 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
 
             seg, slot = nxt
 
-        for i, s in enumerate(updated):
-            if not self.validate_segment(i, s):
-                return
+        if not accepted:
+            return
 
-        if not self.validate_partial(updated):
+        after = deepcopy(updated)
+
+        if not self.validate_edit(before, after, chars="".join(accepted)):
             return
 
         self.segments = updated
-
         self._render()
         self._set_active_slot(seg, slot)
 
@@ -603,10 +619,6 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         if text == " " or text == "\t":
             return True
 
-        if text in self.jump_chars:
-            self._move_segment(1)
-            return True
-
         self.insert_text(text)
         return True
 
@@ -614,15 +626,23 @@ class FnSegmentedFieldBehavior(FnFieldBaseBehavior):
         seg = self._active_segment
         slot = self._active_slot
 
-        if self.segments[seg][slot] is not None:
-            self.segments[seg][slot] = None
+        before = deepcopy(self.segments)
+        updated = deepcopy(self.segments)
+
+        if updated[seg][slot] is not None:
+            updated[seg][slot] = None
         else:
             prev = self._get_adjacent_slot(seg, slot, -1)
             if not prev:
                 return
             seg, slot = prev
-            self.segments[seg][slot] = None
+            updated[seg][slot] = None
 
+        after = deepcopy(updated)
+        if not self.validate_edit(before, after, chars=None):
+            return
+
+        self.segments = updated
         self._render()
         self._set_active_slot(seg, slot)
 
