@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ...state.events.event import NodeEvent
     from ...state.events.subscription import Subscription
 
-    from ..primitives.widget import FnWidget
+    from ..widget import FnWidget
     from ..behaviors.state import FnStateBehavior
 
 

@@ -12,5 +12,5 @@ class ForeignKeyField(BaseField):
         on_delete: Policy = Policy.RESTRICT,
     ):
         super().__init__()
-        self.schema = schema
-        self.on_delete = on_delete
+        self.schema: str = schema
+        self.on_delete: Policy = on_delete

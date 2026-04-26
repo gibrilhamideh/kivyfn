@@ -55,7 +55,6 @@ class FnScreenManager(ScreenManager):
                 )
 
     def build(self, name, screen_cls: type[FnScreen]):
-        print(name)
         if self.has_screen(name):
             raise RuntimeError(
                 f"Screen '{name}' has already been built. "
