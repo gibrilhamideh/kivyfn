@@ -5,8 +5,9 @@ from ....errors import FieldError
 class StringField(DataField):
     """
     Strict string field.
+
     Accepts str only.
-    Performs no normalization or coercion.
+    No normalization or coercion.
     """
 
     def __init__(
@@ -22,8 +23,10 @@ class StringField(DataField):
 
         if min_length is not None and min_length < 0:
             raise ValueError("min_length must be >= 0")
+
         if max_length is not None and max_length < 0:
             raise ValueError("max_length must be >= 0")
+
         if (
             min_length is not None
             and max_length is not None
@@ -42,8 +45,11 @@ class StringField(DataField):
         )
         return data
 
-    def parse(self, value):
-        value = super().parse(value)
+    def challenge(self, value) -> None:
+        super().challenge(value)
+
+        if value is None:
+            return
 
         if not isinstance(value, str):
             raise FieldError(
@@ -71,4 +77,3 @@ class StringField(DataField):
                 metadata=self.metadata,
             )
 
-        return value

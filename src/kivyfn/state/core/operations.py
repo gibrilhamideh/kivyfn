@@ -43,7 +43,7 @@ class SetOperation(Operation):
     def __init__(self, node: Node, instruction: Instruction):
         super().__init__(instruction)
         self.node = node
-        self.key = instruction.key
+        self.key = cast(str, instruction.key)
         self.new_value = instruction.value
         self.old_value = None
 
@@ -51,8 +51,7 @@ class SetOperation(Operation):
         return f"key={self.key!r}, value={self.new_value!r}"
 
     def execute(self):
-        self.old_value = self.node.value.get(self.key)
-        self.node.value[self.key] = self.new_value
+        self.old_value = self.node.set(self.key, self.new_value)
 
         return NodeEvent(
             opcode=self.opcode,
@@ -63,8 +62,7 @@ class SetOperation(Operation):
         )
 
     def undo(self):
-        current = self.node.value.get(self.key)
-        self.node.value[self.key] = self.old_value
+        current = self.node.set(self.key, self.old_value)
 
         return NodeEvent(
             opcode=self.opcode,
@@ -79,7 +77,7 @@ class SetRowOperation(Operation):
     def __init__(self, node: Node, instruction: Instruction):
         super().__init__(instruction)
         self.node = node
-        self.id = instruction.id
+        self.id = cast(str, instruction.id)
         self.key = cast(str, instruction.key)
         self.new_value = instruction.value
         self.old_value = None
@@ -88,14 +86,7 @@ class SetRowOperation(Operation):
         return f"id={self.id!r}, key={self.key!r}, value={self.new_value!r}"
 
     def execute(self):
-        row = self.node.value[self.id]
-        self.old_value = row.get(self.key)
-
-        index = self.node.indexes.get(self.key)
-        if index:
-            index.update(self.id, self.old_value, self.new_value)
-
-        row[self.key] = self.new_value
+        self.old_value = self.node.set_row(self.id, self.key, self.new_value)
 
         return NodeEvent(
             opcode=self.opcode,
@@ -107,14 +98,7 @@ class SetRowOperation(Operation):
         )
 
     def undo(self):
-        row = self.node.value[self.id]
-        current = row.get(self.key)
-
-        index = self.node.indexes.get(self.key)
-        if index:
-            index.update(self.id, self.new_value, self.old_value)
-
-        row[self.key] = self.old_value
+        current = self.node.set_row(self.id, self.key, self.old_value)
 
         return NodeEvent(
             opcode=self.opcode,
@@ -130,16 +114,14 @@ class InsertOperation(Operation):
     def __init__(self, node: Node, instruction: Instruction):
         super().__init__(instruction)
         self.node = node
-        self.id = instruction.id
+        self.id = cast(str, instruction.id)
         self.value = cast(dict, instruction.value)
 
-    def execute(self):
-        self.node.value[self.id] = self.value
+    def _repr_details(self):
+        return f"id={self.id!r}, value={self.value!r}"
 
-        for field, index in self.node.indexes.items():
-            value = self.value.get(field)
-            if value is not None:
-                index.add(self.id, value)
+    def execute(self):
+        self.node.insert(self.id, self.value)
 
         return NodeEvent(
             opcode=self.opcode,
@@ -149,45 +131,28 @@ class InsertOperation(Operation):
         )
 
     def undo(self):
-        row = self.node.value[self.id]
-
-        for field, index in self.node.indexes.items():
-            value = row.get(field)
-            if value is not None:
-                index.remove(self.id, value)
-
-        del self.node.value[self.id]
+        row = self.node.remove(self.id)
 
         return NodeEvent(
-            opcode=self.opcode,  # REMOVE
+            opcode=self.opcode,
             address=self.node.address(),
             id=self.id,
             old_value=row,
         )
-
-    def _repr_details(self):
-        return f"id={self.id!r}, value={self.value!r}"
 
 
 class RemoveOperation(Operation):
     def __init__(self, node: Node, instruction: Instruction):
         super().__init__(instruction)
         self.node = node
-        self.id = instruction.id
+        self.id = cast(str, instruction.id)
         self.old_row = {}
 
     def _repr_details(self):
         return f"id={self.id!r}"
 
     def execute(self):
-        self.old_row = self.node.value[self.id]
-
-        for field, index in self.node.indexes.items():
-            value = self.old_row.get(field)
-            if value is not None:
-                index.remove(self.id, value)
-
-        del self.node.value[self.id]
+        self.old_row = self.node.remove(self.id)
 
         return NodeEvent(
             opcode=self.opcode,
@@ -197,15 +162,10 @@ class RemoveOperation(Operation):
         )
 
     def undo(self):
-        self.node.value[self.id] = self.old_row
-
-        for field, index in self.node.indexes.items():
-            value = self.old_row.get(field)
-            if value is not None:
-                index.add(self.id, value)
+        self.node.insert(self.id, self.old_row)
 
         return NodeEvent(
-            opcode=self.opcode,  # INSERT
+            opcode=self.opcode,
             address=self.node.address(),
             id=self.id,
             new_value=self.old_row,

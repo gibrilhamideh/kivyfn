@@ -1,15 +1,22 @@
+from enum import Enum
+
 from .datafield import DataField
 from ....errors import FieldError
 
-from enum import Enum
-
 
 class EnumField(DataField):
+    """
+    Strict enum field.
+
+    Store value:
+        string/int/etc. from the enum value, not the Enum object.
+    """
+
     def __init__(self, *, enum: type[Enum] | None = None, values=None, **kwargs):
         super().__init__(**kwargs)
 
         if enum is not None:
-            self.values = tuple(enum)
+            self.values = tuple(item.value for item in enum)
         elif values is not None:
             self.values = tuple(values)
         else:
@@ -21,8 +28,11 @@ class EnumField(DataField):
         data.update({"values": self.values})
         return data
 
-    def parse(self, value):
-        value = super().parse(value)
+    def challenge(self, value) -> None:
+        super().challenge(value)
+
+        if value is None:
+            return
 
         if value not in self.values:
             raise FieldError(
@@ -32,4 +42,3 @@ class EnumField(DataField):
                 metadata=self.metadata,
             )
 
-        return value

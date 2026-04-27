@@ -21,6 +21,7 @@ class CompilerError(EngineExecutionError):
         schema=None,
     ):
         super().__init__(message)
+        self.message = message
         self.instruction = instruction
         self.node = node
         self.schema = schema
@@ -42,6 +43,7 @@ class FieldError(CompilerError):
         metadata: dict | None = None,
     ):
         super().__init__(message)
+        self.message = message
         self.field = field
         self.value = value
         self.metadata = metadata or {}

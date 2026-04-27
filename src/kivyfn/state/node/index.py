@@ -1,85 +1,152 @@
 from __future__ import annotations
+
 from typing import Any
 
 from ..errors import ConstraintError, ConstraintType
 
 
-class HashIndex:
-    def __init__(self, *, unique: bool = False):
+IndexKey = tuple[str, ...]
+
+
+class Index:
+    def __init__(self, fields: IndexKey, *, unique: bool = False) -> None:
+        self.fields = fields
         self.unique = unique
         self._map: dict[Any, set[str]] = {}
 
-    def add(self, row_id: str, value: Any) -> None:
-        rows = self._map.setdefault(value, set())
+    def build_key(self, row: dict[str, Any]) -> Any:
+        if len(self.fields) == 1:
+            return row.get(self.fields[0])
+
+        return tuple(row.get(field) for field in self.fields)
+
+    def add(self, row_id: str, row: dict[str, Any]) -> None:
+        key = self.build_key(row)
+
+        if key is None:
+            return
+
+        rows = self._map.setdefault(key, set())
 
         if self.unique and rows and row_id not in rows:
-            # NOTE: might be RunTime Error will be better fit here
             raise ConstraintError(
-                "Unique constraint violated", constraint_type=ConstraintType.UNIQUE
+                "Unique constraint violated",
+                constraint_type=ConstraintType.UNIQUE,
             )
 
         rows.add(row_id)
 
-    def remove(self, row_id: str, value: Any) -> None:
-        rows = self._map.get(value)
+    def remove(self, row_id: str, row: dict[str, Any]) -> None:
+        key = self.build_key(row)
+
+        if key is None:
+            return
+
+        rows = self._map.get(key)
         if not rows:
             return
 
         rows.discard(row_id)
+
         if not rows:
-            del self._map[value]
-
-    def update(self, row_id: str, old_value: Any, new_value: Any) -> None:
-        if old_value == new_value:
-            return
-
-        if old_value is not None:
-            self.remove(row_id, old_value)
-
-        if new_value is not None:
-            self.add(row_id, new_value)
-
-    def get_all(self, value: Any) -> set[str]:
-        return self._map.get(value, set())
-
-    def get_one(self, value: Any) -> str | None:
-        rows = self._map.get(value)
-        if not rows:
-            return None
-        return next(iter(rows))
-
-
-class CompositeIndex:
-    def __init__(self, fields: tuple[str, ...]):
-        self.fields = fields
-        self._map: dict[tuple[Any, ...], str] = {}
-
-    def build_key(self, row: dict) -> tuple:
-        return tuple(row.get(f) for f in self.fields)
-
-    def add(self, row_id: str, row: dict):
-        key = self.build_key(row)
-
-        existing = self._map.get(key)
-        if existing and existing != row_id:
-            raise ConstraintError(
-                "Composite unique constraint violated",
-                constraint_type=ConstraintType.UNIQUE,
-            )
-
-        self._map[key] = row_id
-
-    def remove(self, row_id: str, row: dict):
-        key = self.build_key(row)
-        if self._map.get(key) == row_id:
             del self._map[key]
 
-    def update(self, row_id: str, old_row: dict, new_row: dict):
+    def update(
+        self,
+        row_id: str,
+        old_row: dict[str, Any],
+        new_row: dict[str, Any],
+    ) -> None:
         old_key = self.build_key(old_row)
         new_key = self.build_key(new_row)
 
         if old_key == new_key:
             return
 
+        self._validate_add(row_id, new_key)
+
         self.remove(row_id, old_row)
         self.add(row_id, new_row)
+
+    def lookup(self, value: Any, *, first: bool = False) -> set[str] | str | None:
+        rows = self._map.get(value)
+
+        if not rows:
+            return None if first else set()
+
+        if first:
+            return next(iter(rows))
+
+        return set(rows)
+
+    def _validate_add(self, row_id: str, key: Any) -> None:
+        if key is None:
+            return
+
+        rows = self._map.get(key)
+
+        if self.unique and rows and row_id not in rows:
+            raise ConstraintError(
+                "Unique constraint violated",
+                constraint_type=ConstraintType.UNIQUE,
+            )
+
+
+class IndexManager:
+    def __init__(self, schema) -> None:
+        self._indexes: dict[IndexKey, Index] = {}
+
+        for fields in schema.index_keys():
+            unique = fields in schema.unique_keys()
+            self._indexes[fields] = Index(fields, unique=unique)
+
+    def add(self, row_id: str, row: dict[str, Any]) -> None:
+        # Validate all indexes first so partial mutation cannot happen.
+        for index in self._indexes.values():
+            key = index.build_key(row)
+            index._validate_add(row_id, key)
+
+        for index in self._indexes.values():
+            index.add(row_id, row)
+
+    def remove(self, row_id: str, row: dict[str, Any]) -> None:
+        for index in self._indexes.values():
+            index.remove(row_id, row)
+
+    def update(
+        self,
+        row_id: str,
+        old_row: dict[str, Any],
+        new_row: dict[str, Any],
+    ) -> None:
+        # Validate all new keys first so partial mutation cannot happen.
+        for index in self._indexes.values():
+            old_key = index.build_key(old_row)
+            new_key = index.build_key(new_row)
+
+            if old_key != new_key:
+                index._validate_add(row_id, new_key)
+
+        for index in self._indexes.values():
+            index.update(row_id, old_row, new_row)
+
+    def lookup(
+        self,
+        fields: str | tuple[str, ...],
+        value: Any,
+        *,
+        first: bool = False,
+    ) -> set[str] | str | None:
+        key = self._normalize_fields(fields)
+
+        index = self._indexes.get(key)
+        if index is None:
+            return None if first else set()
+
+        return index.lookup(value, first=first)
+
+    def _normalize_fields(self, fields: str | tuple[str, ...]) -> IndexKey:
+        if isinstance(fields, str):
+            return (fields,)
+
+        return tuple(fields)

@@ -35,56 +35,68 @@ class ConstraintGuard:
     # ============================================================
     # UNIQUE CONSTRAINTS
     # ============================================================
-    # NOTE: forienkey Uniqueness is not implemented
     def _validate_uniques(self, delta: Delta):
         for node in delta.touched_nodes:
             candidate_ids = delta.updated_ids(node) | delta.inserted_ids(node)
 
-            for field in delta.touched_fields(node):
-                field_def = node.schema.get_field(field)
-
-                # Uniqueness comes from schema
-                if not field_def.unique:
+            for unique_key in node.schema.unique_keys():
+                # Only validate this unique if one of its fields was touched
+                if not set(unique_key) & delta.touched_fields(node):
                     continue
 
                 seen: set[Any] = set()
 
                 for id in candidate_ids:
-                    value = delta.value(node, id, field)
-
-                    if value is None:
+                    if not delta.exists(node, id):
                         continue
 
-                    # 1️⃣ Collision inside same transaction
+                    value = self._build_unique_value(delta, node, id, unique_key)
+
+                    if self._is_empty_unique_value(value):
+                        continue
+
+                    # 1. Collision inside same transaction
                     if value in seen:
                         raise ConstraintError(
                             message=(
                                 f"Unique constraint violated on "
-                                f"{node.schema.__name__}.{field}"
+                                f"{node.schema.__name__}.{'.'.join(unique_key)}"
                             ),
                             constraint_type=ConstraintType.UNIQUE,
                             schema=node.schema,
-                            field=field,
+                            field=".".join(unique_key),
                             value=value,
                         )
 
                     seen.add(value)
 
-                    # 2️⃣ Collision with base state
-                    existing_id = node.lookup_unique(field, value)
+                    # 2. Collision with base state
+                    existing_id = node.lookup(unique_key, value, first=True)
 
-                    if existing_id is not None:
-                        if existing_id != id and delta.exists(node, existing_id):
-                            raise ConstraintError(
-                                message=(
-                                    f"Unique constraint violated on "
-                                    f"{node.schema.__name__}.{field}"
-                                ),
-                                constraint_type=ConstraintType.UNIQUE,
-                                schema=node.schema,
-                                field=field,
-                                value=value,
-                            )
+                    if not isinstance(existing_id, str) or existing_id == id:
+                        continue
+
+                    if not delta.exists(node, existing_id):
+                        continue
+
+                    existing_future_value = self._build_unique_value(
+                        delta,
+                        node,
+                        existing_id,
+                        unique_key,
+                    )
+
+                    if existing_future_value == value:
+                        raise ConstraintError(
+                            message=(
+                                f"Unique constraint violated on "
+                                f"{node.schema.__name__}.{'.'.join(unique_key)}"
+                            ),
+                            constraint_type=ConstraintType.UNIQUE,
+                            schema=node.schema,
+                            field=".".join(unique_key),
+                            value=value,
+                        )
 
     # ============================================================
     # FOREIGN KEY EXISTENCE
@@ -142,6 +154,8 @@ class ConstraintGuard:
 
                 for removed_id in removed_ids:
                     referencing_ids = referencing_node.lookup(fk.field, removed_id)
+                    if not isinstance(referencing_ids, set):
+                        continue
 
                     for ref_id in referencing_ids:
                         # If referencing row is deleted in this transaction → safe
@@ -162,3 +176,21 @@ class ConstraintGuard:
                                 field=fk.field,
                                 value=removed_id,
                             )
+
+    # ============================================================
+    # Helpers
+    # ============================================================
+    def _build_unique_value(self, delta: Delta, node, id: str, fields: tuple[str, ...]):
+        if len(fields) == 1:
+            return delta.value(node, id, fields[0])
+
+        return tuple(delta.value(node, id, field) for field in fields)
+
+    def _is_empty_unique_value(self, value: Any) -> bool:
+        if value is None:
+            return True
+
+        if isinstance(value, tuple):
+            return any(part is None for part in value)
+
+        return False

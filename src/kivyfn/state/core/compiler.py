@@ -71,32 +71,38 @@ class Compiler:
     # ============================= #
     # Operation Compliler
     # ============================= #
-    def _compile_set(
-        self, node: Node, instruction: Instruction
-    ) -> tuple[Operation, Instruction]:
+    def _compile_set(self, node: Node, instruction: Instruction):
         schema = node.schema
 
         if schema.is_many():
             raise CompilerError(
                 "SET only valid on single schema",
                 node=node,
-                schema=node.schema,
+                schema=schema,
                 instruction=instruction,
             )
 
         if instruction.key is None:
             raise CompilerError(
-                "SET requires key", node=node, schema=schema, instruction=instruction
+                "SET requires key",
+                node=node,
+                schema=schema,
+                instruction=instruction,
             )
 
-        cast = schema.challenge_field(instruction.key, instruction.value)
-        instruction = instruction.copy(value=cast)
+        try:
+            schema.challenge_field(instruction.key, instruction.value)
+        except FieldError as e:
+            raise CompilerError(
+                e.message,
+                node=node,
+                schema=schema,
+                instruction=instruction,
+            ) from e
 
         return SetOperation(node, instruction), instruction
 
-    def _compile_setrow(
-        self, node: Node, instruction: Instruction
-    ) -> tuple[Operation, Instruction]:
+    def _compile_setrow(self, node: Node, instruction: Instruction):
         schema = node.schema
 
         if not schema.is_many():
@@ -109,29 +115,33 @@ class Compiler:
 
         if instruction.id is None:
             raise CompilerError(
-                "SETROW requires id", node=node, schema=schema, instruction=instruction
+                "SETROW requires id",
+                node=node,
+                schema=schema,
+                instruction=instruction,
             )
 
         if instruction.key is None:
             raise CompilerError(
-                "SETROW requires key", node=node, schema=schema, instruction=instruction
+                "SETROW requires key",
+                node=node,
+                schema=schema,
+                instruction=instruction,
             )
-        try:
-            cast = schema.challenge_field(instruction.key, instruction.value)
-            instruction = instruction.copy(value=cast)
-            return SetRowOperation(node, instruction), instruction
 
+        try:
+            schema.challenge_field(instruction.key, instruction.value)
         except FieldError as e:
             raise CompilerError(
-                str(e),
+                e.message,
                 node=node,
                 schema=schema,
                 instruction=instruction,
             ) from e
 
-    def _compile_insert(
-        self, node: Node, instruction: Instruction
-    ) -> tuple[Operation, Instruction]:
+        return SetRowOperation(node, instruction), instruction
+
+    def _compile_insert(self, node: Node, instruction: Instruction):
         schema = node.schema
 
         if not schema.is_many():
@@ -144,7 +154,10 @@ class Compiler:
 
         if instruction.id is None:
             raise CompilerError(
-                "INSERT requires id", node=node, schema=schema, instruction=instruction
+                "INSERT requires id",
+                node=node,
+                schema=schema,
+                instruction=instruction,
             )
 
         if not isinstance(instruction.value, dict):
@@ -156,17 +169,17 @@ class Compiler:
             )
 
         try:
-            cast = schema.challenge_fields(instruction.value)
+            built = node._build_default(instruction.value)
         except FieldError as e:
             raise CompilerError(
-                str(e),
+                e.message,
                 node=node,
                 schema=schema,
                 instruction=instruction,
             ) from e
 
-        # preserve deterministic id
-        instruction = instruction.copy(value=cast)
+        instruction = instruction.copy(value=built)
+
         return InsertOperation(node, instruction), instruction
 
     def _compile_remove(

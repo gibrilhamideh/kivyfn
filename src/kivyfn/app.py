@@ -5,6 +5,7 @@ import importlib
 
 from kivy.app import App
 from kivy.lang import Builder
+from kivy.properties import ObjectProperty
 
 
 from .resources import app_resource
@@ -30,6 +31,8 @@ Builder.load_string(
 
 
 class FnApp(App):
+    store = ObjectProperty(None, allownone=True)
+
     def __init__(self, config: AppConfig, **kwargs):
         super().__init__(**kwargs)
 

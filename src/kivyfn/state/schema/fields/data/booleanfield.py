@@ -6,11 +6,14 @@ class BooleanField(DataField):
     """
     Strict boolean field.
     Accepts bool only.
-    Performs no coercion or normalization.
+    No coercion, no normalization.
     """
 
-    def parse(self, value):
-        value = super().parse(value)
+    def challenge(self, value):
+        super().challenge(value)
+
+        if value is None:
+            return  # already validated by allow_none
 
         if not isinstance(value, bool):
             raise FieldError(
@@ -20,4 +23,3 @@ class BooleanField(DataField):
                 metadata=self.metadata,
             )
 
-        return value

@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Any, ClassVar
+
+from typing import ClassVar
 
 from .registry import SchemaRegistry
 from .trigger import Trigger
@@ -9,13 +10,20 @@ from ..core.registry import ForeignKeyRegistry
 from ..errors import FieldNotFoundError
 
 
+IndexKey = tuple[str, ...]
+
+
 class Schema:
     many: ClassVar[bool] = False
-    persistant: ClassVar[bool] = False
+    persistent: ClassVar[bool] = False
+
+    indexes: ClassVar[list[IndexKey]] = []
+    uniques: ClassVar[list[IndexKey]] = []
 
     __fields__: ClassVar[dict[str, BaseField]]
     __triggers__: ClassVar[list[Trigger]]
-    __composite_uniques__: ClassVar[list[tuple[str, ...]]] = []
+    __indexes__: ClassVar[set[IndexKey]]
+    __uniques__: ClassVar[set[IndexKey]]
 
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
@@ -26,14 +34,9 @@ class Schema:
         for name, attr in cls.__dict__.items():
             if isinstance(attr, BaseField):
                 attr.name = name
-
-                # 🔒 Normalize constraints
-                if getattr(attr, "unique", False):
-                    attr.index = True
+                fields[name] = attr
 
                 if isinstance(attr, ForeignKeyField):
-                    attr.index = True
-
                     ForeignKeyRegistry.register(
                         schema=cls.__name__,
                         field=name,
@@ -41,18 +44,44 @@ class Schema:
                         on_delete=attr.on_delete,
                     )
 
-                fields[name] = attr
-
             if hasattr(attr, "_trigger_meta"):
-                triggers.extend(attr._trigger_meta)
+                triggers.extend(attr._trigger_meta)  # pyright: ignore
 
         cls.__fields__ = fields
         cls.__triggers__ = triggers
 
-        SchemaRegistry.register(cls)  # ------------------------
+        cls.__indexes__ = set()
+        cls.__uniques__ = set()
 
-    # Introspection API
-    # ------------------------
+        # explicit non-unique indexes
+        for index in getattr(cls, "indexes", []):
+            cls.__indexes__.add(tuple(index))
+
+        # unique constraints are automatically indexes
+        for unique in getattr(cls, "uniques", []):
+            key = tuple(unique)
+            cls.__uniques__.add(key)
+            cls.__indexes__.add(key)
+
+        # foreign keys are automatically indexed
+        for name, field in fields.items():
+            if isinstance(field, ForeignKeyField):
+                cls.__indexes__.add((name,))
+
+        cls._validate_index_keys()
+        SchemaRegistry.register(cls)
+
+    @classmethod
+    def _validate_index_keys(cls) -> None:
+        names = set(cls.__fields__)
+
+        for key in cls.__indexes__ | cls.__uniques__:
+            for field_name in key:
+                if field_name not in names:
+                    raise FieldNotFoundError(
+                        f"Unknown field '{field_name}' in index/unique for {cls.__name__}"
+                    )
+
     @classmethod
     def get_field(cls, name: str) -> BaseField:
         try:
@@ -69,12 +98,12 @@ class Schema:
         return set(cls.__fields__)
 
     @classmethod
-    def indexed_fields(cls) -> tuple[str, ...]:
-        return tuple(name for name, field in cls.__fields__.items() if field.index)
+    def index_keys(cls) -> set[IndexKey]:
+        return set(cls.__indexes__)
 
     @classmethod
-    def unique_fields(cls) -> tuple[str, ...]:
-        return tuple(name for name, field in cls.__fields__.items() if field.unique)
+    def unique_keys(cls) -> set[IndexKey]:
+        return set(cls.__uniques__)
 
     @classmethod
     def foreign_key_fields(cls) -> tuple[str, ...]:
@@ -84,34 +113,24 @@ class Schema:
             if isinstance(field, ForeignKeyField)
         )
 
-    # ------------------------
-    # Flags
-    # ------------------------
     @classmethod
     def is_many(cls) -> bool:
         return cls.many
 
     @classmethod
     def defaults(cls) -> dict:
-        data = {}
+        return {
+            name: getattr(field, "default", None)
+            for name, field in cls.__fields__.items()
+        }
 
-        for name, field in cls.fields().items():
-            data[name] = getattr(field, "default", None)
-
-        return data
-
-    # ------------------------
-    # Challenges
-    # ------------------------
     @classmethod
-    def challenge_field(cls, name: str, value: Any) -> Any:
+    def challenge_field(cls, name: str, value) -> None:
         field = cls.get_field(name)
-        return field.parse(value)
+        field.challenge(value)
 
     @classmethod
-    def challenge_fields(cls, data: dict) -> dict:
-        casts = {}
+    def challenge_fields(cls, data: dict) -> None:
         for name, value in data.items():
-            casts[name] = cls.challenge_field(name, value)
+            cls.challenge_field(name, value)
 
-        return casts
