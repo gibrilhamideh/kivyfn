@@ -1,11 +1,13 @@
 from __future__ import annotations
+from typing import Callable, Optional, Any, TYPE_CHECKING
 
 import weakref
 from dataclasses import dataclass
-from typing import Callable, Optional, Any
 
-from .event import NodeEvent
 from ..constants import InstructionOpCode
+
+if TYPE_CHECKING:
+    from .event import NodeEvent
 
 
 @dataclass(slots=True)
@@ -68,7 +70,6 @@ class Listener:
         Fast filtering logic.
         """
 
-        # NOTE:: must implement all cases
         if self.opcode is not None and event.opcode is not self.opcode:
             return False
 

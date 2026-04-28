@@ -118,6 +118,10 @@ class Schema:
         return cls.many
 
     @classmethod
+    def is_foreignkey(cls, field) -> bool:
+        return field in cls.foreign_key_fields()
+
+    @classmethod
     def defaults(cls) -> dict:
         return {
             name: getattr(field, "default", None)
@@ -133,4 +137,3 @@ class Schema:
     def challenge_fields(cls, data: dict) -> None:
         for name, value in data.items():
             cls.challenge_field(name, value)
-

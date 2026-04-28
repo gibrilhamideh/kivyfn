@@ -20,7 +20,7 @@ class Subscription:
 
     __slots__ = ("_node", "_token", "_active")
 
-    def __init__(self, node: "Node", token: str) -> None:
+    def __init__(self, node: Node, token: str) -> None:
         self._node = node
         self._token = token
         self._active = True

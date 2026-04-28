@@ -86,7 +86,7 @@ class SetRowOperation(Operation):
         return f"id={self.id!r}, key={self.key!r}, value={self.new_value!r}"
 
     def execute(self):
-        self.old_value = self.node.set_row(self.id, self.key, self.new_value)
+        self.old_value = self.node.setrow(self.id, self.key, self.new_value)
 
         return NodeEvent(
             opcode=self.opcode,
@@ -98,7 +98,7 @@ class SetRowOperation(Operation):
         )
 
     def undo(self):
-        current = self.node.set_row(self.id, self.key, self.old_value)
+        current = self.node.setrow(self.id, self.key, self.old_value)
 
         return NodeEvent(
             opcode=self.opcode,

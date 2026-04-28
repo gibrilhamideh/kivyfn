@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 import uuid
+import copy
+
+from kivyfn.state.constants import InstructionOpCode
 
 from .index import IndexManager
 
@@ -16,19 +19,25 @@ if TYPE_CHECKING:
 
 
 class Node:
-    def __init__(self, schema: type[Schema]) -> None:
-        self.schema = schema
+    registry: ClassVar[dict[str, Node]] = {}
 
+    def __init__(self, schema: type[Schema]) -> None:
+        if schema.__name__ in Node.registry:
+            raise NodeError(f"Duplicate schema name: {schema.__name__}")
+
+        Node.registry[schema.__name__] = self
+        self.schema = schema
         self.name: str | int | None = None
         self.parent: Node | None = None
         self.children: dict[str | int, Node] = {}
 
         # many=True  -> {row_id: row}
         # many=False -> {field: value}
-        self.value: dict = {}
+        self.value: dict | dict[str, dict] = {}
 
         self._indexes = IndexManager(schema)
         self._listeners: dict[str, Listener] = {}
+        self._foreignkey_subscriptions: dict[str, list[Subscription]] = {}
 
     def __repr__(self) -> str:
         return f"Node(schema={self.schema.__name__}, children={len(self.children)})"
@@ -127,7 +136,7 @@ class Node:
         self._indexes.add(row_id, built)
         self.value[row_id] = built
 
-    def set_row(self, row_id: str, key: str, value: Any) -> Any:
+    def setrow(self, row_id: str, key: str, value: Any) -> Any:
         if not self.schema.many:
             raise NodeError("set_row() is only valid for many schemas")
 
@@ -200,6 +209,42 @@ class Node:
     ) -> set[str] | str | None:
         return self._indexes.lookup(fields, value, first=first)
 
+    def snapshot(
+        self,
+        id: str | None = None,
+        key: str | None = None,
+    ) -> Any:
+        if self.schema.many:
+            # Full table
+            if id is None:
+                return copy.deepcopy(self.value)
+
+            # Row-level
+            if id not in self.value:
+                return None
+
+            row = self.value[id]
+
+            # Full row
+            if key is None:
+                return copy.deepcopy(row)
+
+            # Field-level
+            if key not in row:
+                return None
+
+            return copy.deepcopy(row[key])
+
+        else:
+            # Single schema
+            if key is None:
+                return copy.deepcopy(self.value)
+
+            if key not in self.value:
+                return None
+
+            return copy.deepcopy(self.value[key])
+
     # ---------------------------
     # Subscriptions
     # ---------------------------
@@ -207,9 +252,10 @@ class Node:
         self,
         callback,
         *,
-        opcode=None,
-        id=None,
-        key=None,
+        opcode: InstructionOpCode | None = None,
+        id: str | None = None,
+        key: str | None = None,
+        depth: int | None = 0,
     ) -> Subscription:
         token = uuid.uuid4().hex
 
@@ -221,10 +267,28 @@ class Node:
         )
 
         self._listeners[token] = listener
+
+        if depth != 0:
+            self._subscribe_foreignkeys(
+                token,
+                callback,
+                opcode,
+                id,
+                key,
+                depth,
+            )
+
         return Subscription(self, token)
 
     def unsubscribe(self, token: str) -> None:
+        # remove local listener
         self._listeners.pop(token, None)
+
+        # remove foreign subscriptions
+        subs = self._foreignkey_subscriptions.pop(token, None)
+        if subs:
+            for sub in subs:
+                sub.dispose()
 
     def dispatch(self, event: NodeEvent) -> None:
         dead_tokens = []
@@ -241,3 +305,95 @@ class Node:
 
         for token in dead_tokens:
             self._listeners.pop(token, None)
+
+    def _subscribe_foreignkeys(
+        self,
+        token: str,
+        callback: Callable,
+        opcode: InstructionOpCode | None,
+        id: str | None,
+        key: str | None,
+        depth: int | None,
+    ):
+        if opcode != InstructionOpCode.SETROW:
+            return
+
+        if depth == 0:
+            return
+
+        if depth is not None and depth < 0:
+            return
+
+        next_depth = None if depth is None else depth - 1
+
+        foreignkey_fields = self.schema.foreign_key_fields()
+
+        if key is not None:
+            if key in foreignkey_fields:
+                self._subscribe_foreignkey(
+                    token,
+                    callback,
+                    id=id,
+                    foreignkey=key,
+                    depth=next_depth,
+                )
+            return
+
+        for foreignkey in foreignkey_fields:
+            self._subscribe_foreignkey(
+                token,
+                callback,
+                id=id,
+                foreignkey=foreignkey,
+                depth=next_depth,
+            )
+
+    def _subscribe_foreignkey(
+        self,
+        token: str,
+        callback: Callable,
+        *,
+        id: str | None,
+        foreignkey: str,
+        depth: int | None,
+    ):
+        field = self.schema.get_field(foreignkey)
+        referenced_schema_name = field.schema  # pyright: ignore
+
+        referenced_node = Node.registry[referenced_schema_name]
+
+        def wrapper(event: NodeEvent):
+            # 1. High-speed index lookup
+            # Find all local rows that point to the foreign row that just changed.
+            matching_ids = self.lookup(foreignkey, event.id)
+
+            if matching_ids is None:
+                return
+
+            # 2. Dispatch translated events
+            for base_id in matching_ids:
+                # If the subscriber restricted the listener to a specific ID (id="output_1"),
+                # we ensure we only notify that specific one.
+                if id is not None and base_id != id:
+                    continue
+
+                translated = NodeEvent(
+                    address=event.address,
+                    opcode=event.opcode,
+                    id=base_id,
+                    key=event.key,
+                    old_value=event.old_value,
+                    new_value=event.new_value,
+                )
+
+                callback(translated)
+
+        subscription = referenced_node.subscribe(
+            wrapper,
+            opcode=InstructionOpCode.SETROW,
+            id=None,
+            key=None,
+            depth=depth,
+        )
+
+        self._foreignkey_subscriptions.setdefault(token, []).append(subscription)

@@ -53,6 +53,7 @@ class Store:
         opcode: Optional[InstructionOpCode] = None,
         id: Optional[str] = None,
         key: Optional[str] = None,
+        depth: Optional[int | None] = 0,
     ) -> Subscription:
         """
         Public reactive binding API.
@@ -63,17 +64,12 @@ class Store:
         assert self._engine, "Store must be configured before use"
         node = self._engine.resolve(address)
 
-        return node.subscribe(
-            callback,
-            opcode=opcode,
-            id=id,
-            key=key,
-        )
+        return node.subscribe(callback, opcode=opcode, id=id, key=key, depth=depth)
 
     # -------------------------------------------------
     # Read APIs
     # -------------------------------------------------
-    def snapshot(self, address: Optional[Address] = None) -> Any:
+    def snapshot(self, address: Address, id=None, key=None) -> Any:
         """
         Return a deep-copied snapshot of the current state.
 
@@ -85,17 +81,13 @@ class Store:
         This method MUST NOT mutate store or node data.
         The returned value is safe for application use.
         """
+        assert self._engine, "Store must be configured before use"
+        node = self._engine.resolve(address)
 
-        raise NotImplementedError("Store.snapshot is not implemented yet")
-
-    def dump(self, address: Optional[Address] = None) -> Any:
-        """
-        Internal/debug dump of store data.
-
-        This may expose raw structures and is NOT guaranteed
-        to be stable or safe for mutation.
-        """
-        raise NotImplementedError("Store.dump is not implemented yet")
+        return node.snapshot(
+            id=id,
+            key=key,
+        )
 
     # -------------------------------------------------
     # Visualization APIs (structure, not data)
