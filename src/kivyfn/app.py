@@ -4,11 +4,11 @@ import importlib
 
 from kivy.app import App
 
-from .resources import app_resource
-from .i18n import i18n
-from .fonts import fonts
-from .settings import AppSettings
-from .config import AppConfig
+from kivyfn.resources import app_resource
+from kivyfn.i18n import i18n
+from kivyfn.fonts import fonts
+from kivyfn.settings import AppSettings
+from kivyfn.config import AppConfig
 
 
 class FnApp(App):
