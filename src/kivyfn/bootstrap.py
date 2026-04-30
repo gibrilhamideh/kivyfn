@@ -14,6 +14,6 @@ def bootstrap() -> None:
     _bootstrapped = True
 
     # Register core widgets
-    from .uibase.factory import register  # pyright: ignore
+    from .factory import register
 
     register()
