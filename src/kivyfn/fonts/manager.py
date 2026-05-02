@@ -5,7 +5,7 @@ from kivy.core.text import LabelBase
 from kivy.event import EventDispatcher
 from kivy.properties import StringProperty
 
-from kivyfn.resources import framework_resource, app_resource
+from kivyfn.resources import framework_resource
 
 
 class FontManager(EventDispatcher):
@@ -34,7 +34,7 @@ class FontManager(EventDispatcher):
     # Public API
     # -----------------------------------------------------
 
-    def load(self) -> None:
+    def load(self, path) -> None:
         """
         Load framework + app fonts.
         Safe to call multiple times.
@@ -43,7 +43,7 @@ class FontManager(EventDispatcher):
             return
 
         self._load_framework_fonts()
-        self._load_app_fonts()
+        self._load_app_fonts(path)
 
         self._loaded = True
 
@@ -129,13 +129,11 @@ class FontManager(EventDispatcher):
                 fn_regular=str(icons_path),
             )
 
-    def _load_app_fonts(self) -> None:
+    def _load_app_fonts(self, fonts_dir) -> None:
         """
         Register fonts from app/fonts directory.
         Each .ttf becomes available by its file stem.
         """
-
-        fonts_dir = app_resource("resources", "fonts")
 
         if not fonts_dir.exists():
             return

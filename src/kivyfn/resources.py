@@ -106,39 +106,3 @@ def framework_resource(package: str, *parts: str) -> Path:
 
     base = resources.files(package)
     return Path(base.joinpath(*parts))  # pyright: ignore
-
-
-# ---------------------------------------------------------------------
-# Application resources
-# ---------------------------------------------------------------------
-
-
-def app_resource(*parts: str) -> Path:
-    """
-    Resolve a path to a resource belonging to the developer application.
-
-    Parameters
-    ----------
-    *parts:
-        Path components relative to the application's entry directory
-        (where ``main.py`` resides).
-
-    Returns
-    -------
-    Path
-        Absolute path to the requested resource.
-
-    Notes
-    -----
-    The application root is determined from the entry script location.
-    This works both in normal execution and PyInstaller bundles.
-    """
-
-    runtime = _runtime_root()
-
-    if runtime:
-        base = runtime
-    else:
-        base = Path(sys.argv[0]).resolve().parent
-
-    return base.joinpath(*parts)

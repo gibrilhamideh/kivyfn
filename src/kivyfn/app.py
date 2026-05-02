@@ -4,7 +4,6 @@ import importlib
 
 from kivy.app import App
 
-from kivyfn.resources import app_resource
 from kivyfn.i18n import i18n
 from kivyfn.fonts import fonts
 from kivyfn.settings import AppSettings
@@ -15,8 +14,8 @@ class FnApp(App):
     def __init__(self, config: AppConfig, **kwargs):
         super().__init__(**kwargs)
 
-        self.config = config
-        self.settings: AppSettings
+        self.fnconfig = config
+        self.fnsettings: AppSettings
 
         self._bootstrap()
 
@@ -37,15 +36,20 @@ class FnApp(App):
         self.settings = AppSettings()
 
     def _load_fonts(self):
-        fonts.load()
+        if self.fnconfig.locales_dir is None:
+            return
+
+        path = self.fnconfig.locales_dir / "fonts"
+        fonts.load(path)
 
     def _load_i18n(self):
-        locales_dir = self.config.locales_dir or app_resource("resources", "locales")
+        locales_dir = self.fnconfig.locales_dir
+
+        if locales_dir is None:
+            return
 
         i18n.configure(locales_dir)
-
         language = self.settings.get("language", "en")
-
         i18n.load(language)
 
     def _load_modules(self):
