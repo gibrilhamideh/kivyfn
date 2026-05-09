@@ -1,3 +1,3 @@
-from .definition import ProcessDefinition
-from .manger import ProcessManager
-from .process import ManagedProcess
+from .config import FnProcessConfig
+from .manger import FnProcessManager
+from .process import FnProcess

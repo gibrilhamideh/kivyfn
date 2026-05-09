@@ -3,8 +3,8 @@ from __future__ import annotations
 from multiprocessing import get_context
 
 from kivyfn.base import FnBaseApp
-from kivyfn.process import ProcessManager
-from kivyfn.runtime import RuntimeHost
+from kivyfn.process import FnProcessManager
+from kivyfn.runtime import FnHostBus
 from kivyfn.windows import WindowManager
 
 
@@ -13,10 +13,8 @@ class FnApp(FnBaseApp):
         super().__init__(*args, **kwargs)
 
         context = get_context("spawn")
-        self.fnruntime = RuntimeHost(context)
-        self.fnprocesses = ProcessManager(context)
-        self.fnwindows = WindowManager(
-            processes=self.fnprocesses,
-            runtime=self.fnruntime,
-            fnconfig=self.fnconfig
-        )
+        self.fnbus = FnHostBus(context)
+        self.fnprocesses = FnProcessManager(context)
+        self.fnwindows = WindowManager(self.fnprocesses, self.fnbus, self.fnconfig)
+
+        self.create_task(self.fnbus.start())

@@ -5,7 +5,7 @@ from multiprocessing.context import SpawnProcess, SpawnContext
 from typing import Any
 
 
-class ManagedProcess:
+class FnProcess:
     def __init__(
         self,
         context,

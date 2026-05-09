@@ -7,7 +7,7 @@ from multiprocessing.queues import Queue
 
 
 @dataclass(frozen=True)
-class RuntimeConnection:
+class FnBusConnection:
     name: str
     host_inbox: Queue
     inbox: Queue

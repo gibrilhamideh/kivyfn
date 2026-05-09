@@ -8,7 +8,7 @@ ProcessName = TypeVar("ProcessName", bound=str)
 
 
 @dataclass(frozen=True)
-class ProcessDefinition(Generic[ProcessName]):
+class FnProcessConfig(Generic[ProcessName]):
     name: ProcessName
     target: Callable[..., None]
     args: tuple[Any, ...] = ()

@@ -3,28 +3,23 @@ from __future__ import annotations
 from typing import Any
 
 from kivyfn.base import FnBaseApp
-from kivyfn.runtime import RuntimeClient, RuntimeConnection
+from kivyfn.runtime import FnClientBus, FnBusConnection
 from kivyfn.windows import WindowController
 
 
 class FnWindow(FnBaseApp):
-    fnruntime: RuntimeClient
+    fnbus: FnClientBus
     fnwindows: WindowController
 
     def __init__(
         self,
         *args: Any,
-        runtime: RuntimeConnection,
+        fnconnection: FnBusConnection,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
 
-        self.fnruntime = RuntimeClient(
-            name=runtime.name,
-            host_inbox=runtime.host_inbox,
-            inbox=runtime.inbox,
-        )
+        self.fnbus = FnClientBus(fnconnection)
+        self.fnwindows = WindowController(bus=self.fnbus)
 
-        self.fnwindows = WindowController(
-            runtime=self.fnruntime,
-        )
+        self.create_task(self.fnbus.start())

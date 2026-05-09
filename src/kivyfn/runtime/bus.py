@@ -8,7 +8,7 @@ from typing import Any
 BusCallback = Callable[[Any], Any | Awaitable[Any]]
 
 
-class BaseBus:
+class FnBus:
     def __init__(self) -> None:
         self._handlers: dict[str, list[BusCallback]] = {}
 

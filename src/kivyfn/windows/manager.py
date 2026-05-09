@@ -4,8 +4,8 @@ from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
 from kivyfn.config import AppConfig
-from kivyfn.process import ManagedProcess, ProcessManager
-from kivyfn.runtime import RuntimeHost
+from kivyfn.process import FnProcess, FnProcessManager
+from kivyfn.runtime import FnHostBus
 
 
 WindowName = TypeVar("WindowName", bound=str)
@@ -14,13 +14,13 @@ WindowName = TypeVar("WindowName", bound=str)
 class WindowManager(Generic[WindowName]):
     def __init__(
         self,
-        processes: ProcessManager[WindowName],
-        runtime: RuntimeHost,
-        fnconfig: AppConfig,
+        processes: FnProcessManager[WindowName],
+        bus: FnHostBus,
+        config: AppConfig,
     ) -> None:
         self._processes = processes
-        self._runtime = runtime
-        self._fnconfig = fnconfig
+        self._bus = bus
+        self._config = config
 
     def register(
         self,
@@ -31,13 +31,13 @@ class WindowManager(Generic[WindowName]):
     ) -> None:
         self._processes.register(name, target, *args, **kwargs)
 
-    def spawn(self, name: WindowName) -> ManagedProcess:
-        runtime = self._runtime.create_client(str(name))
+    def spawn(self, name: WindowName) -> FnProcess:
+        connection = self._bus.create_connection(str(name))
 
         return self._processes.spawn(
             name,
-            fnconfig=self._fnconfig,
-            runtime=runtime,
+            connection=connection,
+            config=self._config,
         )
 
     def close(self, name: WindowName) -> None:

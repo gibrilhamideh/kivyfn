@@ -9,7 +9,7 @@ MessageType = Literal["publish", "subscribe", "unsubscribe"]
 
 
 @dataclass(frozen=True)
-class RuntimeMessage:
+class FnBusMessage:
     type: MessageType
     topic: str
     payload: Any = None

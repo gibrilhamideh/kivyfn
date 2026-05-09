@@ -4,15 +4,15 @@ from collections.abc import Callable
 from multiprocessing.context import SpawnContext
 from typing import Any, Generic
 
-from kivyfn.process.definition import ProcessDefinition, ProcessName
-from kivyfn.process.process import ManagedProcess
+from kivyfn.process.config import FnProcessConfig, ProcessName
+from kivyfn.process.process import FnProcess
 
 
-class ProcessManager(Generic[ProcessName]):
+class FnProcessManager(Generic[ProcessName]):
     def __init__(self, context: SpawnContext) -> None:
-        self.context = context
-        self._registered: dict[ProcessName, ProcessDefinition[ProcessName]] = {}
-        self._running: dict[ProcessName, ManagedProcess] = {}
+        self._ctx = context
+        self._registered: dict[ProcessName, FnProcessConfig[ProcessName]] = {}
+        self._running: dict[ProcessName, FnProcess] = {}
 
     def register(
         self,
@@ -24,17 +24,17 @@ class ProcessManager(Generic[ProcessName]):
         if name in self._registered:
             raise RuntimeError(f"Process '{name}' is already registered")
 
-        self._registered[name] = ProcessDefinition(
+        self._registered[name] = FnProcessConfig(
             name=name,
             target=target,
             args=args,
             kwargs=kwargs,
         )
 
-    def spawn(self, name: ProcessName, **extra_kwargs: Any) -> ManagedProcess:
-        definition = self._registered.get(name)
+    def spawn(self, name: ProcessName, **extra_kwargs: Any) -> FnProcess:
+        process_config = self._registered.get(name)
 
-        if definition is None:
+        if process_config is None:
             raise RuntimeError(f"Process '{name}' is not registered")
 
         existing = self._running.get(name)
@@ -43,15 +43,15 @@ class ProcessManager(Generic[ProcessName]):
             raise RuntimeError(f"Process '{name}' is already running")
 
         kwargs = {
-            **definition.kwargs,
+            **process_config.kwargs,
             **extra_kwargs,
         }
 
-        process = ManagedProcess(
-            context=self.context,
-            name=definition.name,
-            target=definition.target,
-            args=definition.args,
+        process = FnProcess(
+            context=self._ctx,
+            name=process_config.name,
+            target=process_config.target,
+            args=process_config.args,
             kwargs=kwargs,
         )
 
