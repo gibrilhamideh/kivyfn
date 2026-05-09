@@ -5,7 +5,7 @@ from kivy.core.text import LabelBase
 from kivy.event import EventDispatcher
 from kivy.properties import StringProperty
 
-from kivyfn.resources import framework_resource
+from kivyfn.paths import framework_resource
 
 
 class FontManager(EventDispatcher):
