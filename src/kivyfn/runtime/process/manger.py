@@ -4,8 +4,8 @@ from collections.abc import Callable
 from multiprocessing.context import SpawnContext
 from typing import Any, Generic
 
-from kivyfn.process.config import FnProcessConfig, ProcessName
-from kivyfn.process.process import FnProcess
+from kivyfn.runtime.process.config import FnProcessConfig, ProcessName
+from kivyfn.runtime.process.process import FnProcess
 
 
 CleanupCallback = Callable[[ProcessName], None]

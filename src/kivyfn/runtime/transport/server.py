@@ -5,9 +5,9 @@ from multiprocessing.context import SpawnContext
 from multiprocessing.queues import Queue
 from typing import Any, Literal
 
-from kivyfn.runtime.bus import FnBus
-from kivyfn.runtime.connection import FnBusConnection
-from kivyfn.runtime.message import FnBusMessage
+from kivyfn.runtime.transport.bus import FnBus
+from kivyfn.runtime.transport.connection import FnBusConnection
+from kivyfn.runtime.transport.message import FnBusMessage
 
 
 class FnServerBus(FnBus):

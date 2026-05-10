@@ -4,8 +4,8 @@ from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
 from kivyfn.config import FnConfig
-from kivyfn.process import FnProcess, FnProcessManager
-from kivyfn.runtime import FnServerBus
+from kivyfn.runtime.process import FnProcess, FnProcessManager
+from kivyfn.runtime.transport.server import FnServerBus
 
 
 WindowName = TypeVar("WindowName", bound=str)

@@ -4,12 +4,13 @@ from multiprocessing import get_context
 
 from kivyfn.config import FnConfig
 from kivyfn.settings import FnSettings
-from kivyfn.process import FnProcessManager
-from kivyfn.runtime.client import FnClientBus
-from kivyfn.runtime.server import FnServerBus
-from kivyfn.runtime.connection import FnBusConnection
-from kivyfn.runtime.state import FnSharedStateManager
-from kivyfn.windows import FnWindowManager, FnWindowController
+from kivyfn.runtime.process import FnProcessManager
+from kivyfn.runtime.transport.client import FnClientBus
+from kivyfn.runtime.transport.server import FnServerBus
+from kivyfn.runtime.transport.connection import FnBusConnection
+from kivyfn.runtime.state.manager import FnSharedStateManager
+from kivyfn.runtime.window.manager import FnWindowManager
+from kivyfn.runtime.window.controller import FnWindowController
 
 import asyncio
 
@@ -21,9 +22,9 @@ class FnServerRuntime:
         self.settings = FnSettings()
         self.bus = FnServerBus(self.context)
         self.processes = FnProcessManager(self.context)
-        self.shared = FnSharedStateManager(self.bus)
+        self.state = FnSharedStateManager(self.bus)
 
-        self.windows = FnWindowManager(
+        self.window_manager = FnWindowManager(
             self.processes,
             self.bus,
             self.config,
@@ -31,6 +32,10 @@ class FnServerRuntime:
 
     def start(self) -> None:
         asyncio.create_task(self.bus.start())
+
+    def stop(self) -> None:
+        self.bus.stop()
+        self.processes.kill_all()
 
 
 class FnClientRuntime:
@@ -44,7 +49,11 @@ class FnClientRuntime:
         self.settings = FnSettings()
         self.bus = FnClientBus(connection)
         self.state = FnSharedStateManager(self.bus)
-        self.windows = FnWindowController(bus=self.bus)
+        self.window_controller = FnWindowController(bus=self.bus)
 
     def start(self) -> None:
         asyncio.create_task(self.bus.start())
+
+    def stop(self) -> None:
+        self.bus.disconnect()
+        self.bus.stop()

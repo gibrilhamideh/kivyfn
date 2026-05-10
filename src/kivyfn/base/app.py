@@ -24,7 +24,6 @@ class FnBaseApp(App):
     # -------------------------------------------------
     # Bootstrap
     # -------------------------------------------------
-
     def _bootstrap(self):
         self._load_modules()
         self._load_fonts()
@@ -78,3 +77,11 @@ class FnBaseApp(App):
 
         task.add_done_callback(done)
         return task
+
+    # -------------------------------------------------
+    # Events
+    # -------------------------------------------------
+    def on_stop(self, *_):
+        self.fn.stop()
+
+

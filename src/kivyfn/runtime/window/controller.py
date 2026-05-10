@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from kivyfn.runtime import FnClientBus
+from kivyfn.runtime.transport.client import FnClientBus
 
 
 WindowName = TypeVar("WindowName", bound=str)
