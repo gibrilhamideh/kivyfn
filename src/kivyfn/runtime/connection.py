@@ -9,5 +9,5 @@ from multiprocessing.queues import Queue
 @dataclass(frozen=True)
 class FnBusConnection:
     name: str
-    host_inbox: Queue
-    inbox: Queue
+    server_inbox: Queue
+    client_inbox: Queue

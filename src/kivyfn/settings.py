@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 
-class AppSettings:
+class FnSettings:
     """
     Persistent application settings.
 

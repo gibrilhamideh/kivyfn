@@ -8,11 +8,15 @@ from kivyfn.process.config import FnProcessConfig, ProcessName
 from kivyfn.process.process import FnProcess
 
 
+CleanupCallback = Callable[[ProcessName], None]
+
+
 class FnProcessManager(Generic[ProcessName]):
     def __init__(self, context: SpawnContext) -> None:
         self._ctx = context
         self._registered: dict[ProcessName, FnProcessConfig[ProcessName]] = {}
         self._running: dict[ProcessName, FnProcess] = {}
+        self._cleanup_callbacks: list[CleanupCallback[ProcessName]] = []
 
     def register(
         self,
@@ -31,7 +35,17 @@ class FnProcessManager(Generic[ProcessName]):
             kwargs=kwargs,
         )
 
-    def spawn(self, name: ProcessName, **extra_kwargs: Any) -> FnProcess:
+    def bind_cleanup(
+        self,
+        callback: CleanupCallback[ProcessName],
+    ) -> None:
+        self._cleanup_callbacks.append(callback)
+
+    def spawn(
+        self,
+        name: ProcessName,
+        **extra_kwargs: Any,
+    ) -> FnProcess:
         process_config = self._registered.get(name)
 
         if process_config is None:
@@ -60,22 +74,40 @@ class FnProcessManager(Generic[ProcessName]):
 
         return process
 
-    def kill(self, name: ProcessName) -> None:
+    def kill(
+        self,
+        name: ProcessName,
+    ) -> None:
         process = self._running.get(name)
 
         if process is None:
             return
 
         process.stop()
-        self._running.pop(name, None)
+        self._cleanup(name)
 
     def kill_all(self) -> None:
         for name in list(self._running):
             self.kill(name)
 
-    def running(self, name: ProcessName) -> bool:
+    def running(
+        self,
+        name: ProcessName,
+    ) -> bool:
         process = self._running.get(name)
         return process is not None and process.running
 
-    def registered(self, name: ProcessName) -> bool:
+    def registered(
+        self,
+        name: ProcessName,
+    ) -> bool:
         return name in self._registered
+
+    def _cleanup(
+        self,
+        name: ProcessName,
+    ) -> None:
+        self._running.pop(name, None)
+
+        for callback in list(self._cleanup_callbacks):
+            callback(name)

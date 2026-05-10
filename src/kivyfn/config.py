@@ -4,9 +4,8 @@ from pathlib import Path
 
 
 @dataclass(slots=True)
-class AppConfig:
+class FnConfig:
     app_dir: Path
-
     resources_dir: Path | None = None
     locales_dir: Path | None = None
     settings_path: Path | None = None

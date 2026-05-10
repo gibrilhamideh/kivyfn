@@ -1,25 +1,23 @@
 from __future__ import annotations
 
-from typing import Any
-
 from kivyfn.base import FnBaseApp
-from kivyfn.runtime import FnClientBus, FnBusConnection
-from kivyfn.windows import WindowController
+from kivyfn.config import FnConfig
+from kivyfn.runtime import (
+    FnBusConnection,
+    FnClientRuntime,
+)
 
 
 class FnWindow(FnBaseApp):
-    fnbus: FnClientBus
-    fnwindows: WindowController
+
+    fn: FnClientRuntime
 
     def __init__(
         self,
-        *args: Any,
-        fnconnection: FnBusConnection,
-        **kwargs: Any,
+        config: FnConfig,
+        connection: FnBusConnection,
     ) -> None:
-        super().__init__(*args, **kwargs)
+        self.fn = FnClientRuntime(config=config, connection=connection)
+        super().__init__(self.fn)
 
-        self.fnbus = FnClientBus(fnconnection)
-        self.fnwindows = WindowController(bus=self.fnbus)
-
-        self.create_task(self.fnbus.start())
+        self.fn.start()

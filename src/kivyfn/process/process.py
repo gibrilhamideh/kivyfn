@@ -8,7 +8,7 @@ from typing import Any
 class FnProcess:
     def __init__(
         self,
-        context,
+        context: SpawnContext,
         name: str,
         target: Callable[..., None],
         args: tuple[Any, ...] = (),

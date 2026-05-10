@@ -3,24 +3,33 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
-from kivyfn.config import AppConfig
+from kivyfn.config import FnConfig
 from kivyfn.process import FnProcess, FnProcessManager
-from kivyfn.runtime import FnHostBus
+from kivyfn.runtime import FnServerBus
 
 
 WindowName = TypeVar("WindowName", bound=str)
 
 
-class WindowManager(Generic[WindowName]):
+class FnWindowManager(Generic[WindowName]):
     def __init__(
         self,
         processes: FnProcessManager[WindowName],
-        bus: FnHostBus,
-        config: AppConfig,
+        bus: FnServerBus,
+        config: FnConfig,
     ) -> None:
         self._processes = processes
         self._bus = bus
         self._config = config
+
+        self._processes.bind_cleanup(
+            lambda name: self._bus.remove_connection(str(name))
+        )
+
+        self._bus.subscribe(
+            "fn.window.close.requested",
+            self._on_close_requested,
+        )
 
     def register(
         self,
@@ -36,8 +45,8 @@ class WindowManager(Generic[WindowName]):
 
         return self._processes.spawn(
             name,
-            connection=connection,
             config=self._config,
+            connection=connection,
         )
 
     def close(self, name: WindowName) -> None:
@@ -51,3 +60,14 @@ class WindowManager(Generic[WindowName]):
 
     def registered(self, name: WindowName) -> bool:
         return self._processes.registered(name)
+
+    def _on_close_requested(
+        self,
+        payload: dict[str, Any],
+    ) -> None:
+        name = payload.get("name")
+
+        if name is None:
+            return
+
+        self.close(name)

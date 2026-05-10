@@ -1,2 +1,2 @@
-from .manager import WindowManager
-from .controller import WindowController
+from .manager import FnWindowManager
+from .controller import FnWindowController

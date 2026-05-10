@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 import asyncio
 import importlib
@@ -7,16 +8,17 @@ from kivy.app import App
 
 from kivyfn.i18n import i18n
 from kivyfn.fonts import fonts
-from kivyfn.settings import AppSettings
-from kivyfn.config import AppConfig
+
+if TYPE_CHECKING:
+    from kivyfn.runtime import FnServerRuntime
+    from kivyfn.runtime import FnClientRuntime
 
 
 class FnBaseApp(App):
-    def __init__(self, config: AppConfig, **kwargs):
-        super().__init__(**kwargs)
 
-        self.fnconfig = config
-        self.fnsettings: AppSettings
+    def __init__(self, fn: FnServerRuntime | FnClientRuntime, **kwargs):
+        super().__init__(**kwargs)
+        self.fn = fn
         self._bootstrap()
 
     # -------------------------------------------------
@@ -25,31 +27,27 @@ class FnBaseApp(App):
 
     def _bootstrap(self):
         self._load_modules()
-        self._load_settings()
         self._load_fonts()
         self._load_i18n()
 
     # -------------------------------------------------
     # Boot Steps
     # -------------------------------------------------
-    def _load_settings(self):
-        self.settings = AppSettings()
-
     def _load_fonts(self):
-        if self.fnconfig.locales_dir is None:
+        if self.fn.config.locales_dir is None:
             return
 
-        path = self.fnconfig.locales_dir / "fonts"
+        path = self.fn.config.locales_dir / "fonts"
         fonts.load(path)
 
     def _load_i18n(self):
-        locales_dir = self.fnconfig.locales_dir
+        locales_dir = self.fn.config.locales_dir
 
         if locales_dir is None:
             return
 
         i18n.configure(locales_dir)
-        language = self.settings.get("language", "en")
+        language = self.fn.settings.get("language", "en")
         i18n.load(language)
 
     def _load_modules(self):
