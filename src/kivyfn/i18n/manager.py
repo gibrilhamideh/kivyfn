@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import json
+from json import load as json_load, JSONDecodeError
+
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,6 @@ class I18n(EventDispatcher):
         try:
             return template.format(**params)
         except Exception:
-            # Fail silently but safely
             return template
 
     # -----------------------------------------------------
@@ -60,6 +60,8 @@ class I18n(EventDispatcher):
         Only updates `self.lang` after successful load.
         """
 
+        #TODO: remove raising exeptions and put loggers
+
         if not self._base_path:
             raise RuntimeError("i18n base_path not configured")
 
@@ -69,8 +71,11 @@ class I18n(EventDispatcher):
             raise FileNotFoundError(f"Translation file not found: {file_path}")
 
         # 1️⃣ Load file first (no state mutation yet)
-        with open(file_path, "r", encoding="utf-8") as f:
-            translations = json.load(f)
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                translations = json_load(f)
+        except JSONDecodeError:
+            return
 
         # Optional validation
         if not isinstance(translations, dict):

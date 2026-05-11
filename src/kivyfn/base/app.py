@@ -10,8 +10,8 @@ from kivyfn.i18n import i18n
 from kivyfn.fonts import fonts
 
 if TYPE_CHECKING:
-    from kivyfn.runtime import FnServerRuntime
-    from kivyfn.runtime import FnClientRuntime
+    from kivyfn.runtime.runtime import FnServerRuntime
+    from kivyfn.runtime.runtime import FnClientRuntime
 
 
 class FnBaseApp(App):

@@ -80,6 +80,18 @@ class FontManager(EventDispatcher):
         fonts = ", ".join(self.list())
         return f"<FontManager current='{self.current}' fonts=[{fonts}]>"
 
+    def register(
+        self,
+        name: str,
+        fn_regular: str,
+        fn_bold: str | None = None,
+    ) -> None:
+        self._register(
+            name=name,
+            fn_regular=fn_regular,
+            fn_bold=fn_bold,
+        )
+
     # -----------------------------------------------------
     # Internal
     # -----------------------------------------------------
@@ -121,13 +133,6 @@ class FontManager(EventDispatcher):
             fn_bold=str(fonts_dir / "NotoSans-Bold.ttf"),
         )
 
-        # --- Icon font
-        icons_path = fonts_dir / "Material-Design-Icons.ttf"
-        if icons_path.exists():
-            self._register(
-                name=self._icons_name,
-                fn_regular=str(icons_path),
-            )
 
     def _load_app_fonts(self, fonts_dir) -> None:
         """
