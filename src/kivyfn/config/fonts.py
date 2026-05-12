@@ -1,0 +1,69 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from kivy.config import Config
+from kivyfn.paths import framework_resource
+
+
+@dataclass(slots=True)
+class FnFontConfig:
+    name: str = "NotoSans"
+    """
+    Global default font alias used by Kivy widgets.
+    """
+
+    regular_path: Path = framework_resource(
+        "kivyfn",
+        "resources",
+        "fonts",
+        "NotoSans-Regular.ttf",
+    )
+    """
+    Regular font file path.
+    """
+
+    italic_path: Path = framework_resource(
+        "kivyfn",
+        "resources",
+        "fonts",
+        "NotoSans-Italic.ttf",
+    )
+    """
+    Italic font file path.
+    """
+
+    bold_path: Path = framework_resource(
+        "kivyfn",
+        "resources",
+        "fonts",
+        "NotoSans-Bold.ttf",
+    )
+    """
+    Bold font file path.
+    """
+
+    bold_italic_path: Path = framework_resource(
+        "kivyfn",
+        "resources",
+        "fonts",
+        "NotoSans-BoldItalic.ttf",
+    )
+    """
+    Bold italic font file path.
+    """
+
+    def apply(self) -> None:
+        Config.set(
+            "kivy",
+            "default_font",
+            [
+                self.name,
+                str(self.regular_path),
+                str(self.italic_path),
+                str(self.bold_path),
+                str(self.bold_italic_path),
+            ],
+        )
+

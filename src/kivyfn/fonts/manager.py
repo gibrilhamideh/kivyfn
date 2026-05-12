@@ -1,150 +1,158 @@
 from __future__ import annotations
 
+from pathlib import Path
 
 from kivy.core.text import LabelBase
 from kivy.event import EventDispatcher
 from kivy.properties import StringProperty
 
-from kivyfn.paths import framework_resource
-
 
 class FontManager(EventDispatcher):
     """
-    Minimal typography system for kivyfn.
+    Runtime font registry for kivyfn.
 
     Responsibilities:
-    - Register framework default font
-    - Register framework icon font
-    - Register optional app fonts
-    - Expose reactive `current` font
-    - Provide introspection utilities for debugging
+    - Auto-load application fonts
+    - Register runtime fonts
+    - Expose reactive current font
+    - Provide font lookup/introspection
+
+    Note:
+    The global default Kivy font is configured by FnConfig.
     """
 
-    current = StringProperty("FnDefault")
+    current: str = StringProperty(None)
 
-    _default_name = "FnDefault"
-    _icons_name = "FnIcons"
-
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        fonts_dir: Path,
+        default_font: str,
+    ) -> None:
         super().__init__()
+
         self._loaded = False
         self._registered: set[str] = set()
+        self.load(fonts_dir, default_font)
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # Public API
-    # -----------------------------------------------------
+    # =====================================================
 
-    def load(self, path) -> None:
+    def load(self, fonts_dir: Path, default_font: str) -> None:
         """
-        Load framework + app fonts.
+        Register all .ttf fonts from a directory.
+
         Safe to call multiple times.
         """
         if self._loaded:
             return
 
-        self._load_framework_fonts()
-        self._load_app_fonts(path)
-
+        self._load_fonts(fonts_dir)
         self._loaded = True
 
-    def list(self) -> list[str]:
-        """
-        Return sorted list of available font names.
-        """
-        return sorted(self._registered)
-
-    def has(self, name: str) -> bool:
-        """
-        Check if font is registered.
-        """
-        return name in self._registered
-
-    def default(self) -> str:
-        return self._default_name
-
-    def icons(self) -> str:
-        return self._icons_name
-
-    def set(self, name: str) -> None:
-        """
-        Set current font safely.
-        """
-        if not self.has(name):
-            raise ValueError(
-                f"Font '{name}' is not registered. Available: {self.list()}"
-            )
-
-        self.current = name
-
-    def __repr__(self) -> str:
-        fonts = ", ".join(self.list())
-        return f"<FontManager current='{self.current}' fonts=[{fonts}]>"
+        self.current = default_font
 
     def register(
         self,
         name: str,
-        fn_regular: str,
-        fn_bold: str | None = None,
-    ) -> None:
-        self._register(
-            name=name,
-            fn_regular=fn_regular,
-            fn_bold=fn_bold,
-        )
-
-    # -----------------------------------------------------
-    # Internal
-    # -----------------------------------------------------
-
-    def _register(
-        self,
-        name: str,
-        fn_regular: str,
-        fn_bold: str | None = None,
+        fn_regular: str | Path,
+        fn_italic: str | Path | None = None,
+        fn_bold: str | Path | None = None,
+        fn_bolditalic: str | Path | None = None,
     ) -> None:
         """
-        Internal safe registration wrapper.
-        Prevents duplicate tracking.
+        Register a font alias with Kivy.
+
+        Example:
+            Label(font_name="MyFont")
         """
+
         if name in self._registered:
             return
 
-        if fn_bold:
-            LabelBase.register(
-                name=name,
-                fn_regular=fn_regular,
-                fn_bold=fn_bold,
-            )
-        else:
-            LabelBase.register(
-                name=name,
-                fn_regular=fn_regular,
-            )
+        LabelBase.register(
+            name=name,
+            fn_regular=str(fn_regular),
+            fn_italic=(
+                str(fn_italic)
+                if fn_italic is not None
+                else None
+            ),
+            fn_bold=(
+                str(fn_bold)
+                if fn_bold is not None
+                else None
+            ),
+            fn_bolditalic=(
+                str(fn_bolditalic)
+                if fn_bolditalic is not None
+                else None
+            ),
+        )
 
         self._registered.add(name)
 
-    def _load_framework_fonts(self) -> None:
-        fonts_dir = framework_resource("kivyfn", "resources", "fonts")
+        if self.current is None:
+            self.current = name
 
-        # --- Default UI font
-        self._register(
-            name=self._default_name,
-            fn_regular=str(fonts_dir / "NotoSans-Regular.ttf"),
-            fn_bold=str(fonts_dir / "NotoSans-Bold.ttf"),
-        )
-
-
-    def _load_app_fonts(self, fonts_dir) -> None:
+    def set(self, name: str) -> None:
         """
-        Register fonts from app/fonts directory.
-        Each .ttf becomes available by its file stem.
+        Set the active runtime font alias.
+        """
+
+        if not self.has(name):
+            raise ValueError(
+                f"Font '{name}' is not registered. "
+                f"Available: {self.list()}"
+            )
+
+        self.current = name
+
+    def has(self, name: str) -> bool:
+        """
+        Check if a font alias exists.
+        """
+        return name in self._registered
+
+    def list(self) -> list[str]:
+        """
+        Return sorted registered font aliases.
+        """
+        return sorted(self._registered)
+
+    # =====================================================
+    # Internal
+    # =====================================================
+
+    def _load_fonts(self, fonts_dir: Path) -> None:
+        """
+        Auto-register all .ttf fonts in a directory.
+
+        Each file becomes:
+            FontName.ttf -> "FontName"
         """
 
         if not fonts_dir.exists():
             return
 
         for font_file in fonts_dir.glob("*.ttf"):
-            self._register(
+            self.register(
                 name=font_file.stem,
-                fn_regular=str(font_file),
+                fn_regular=font_file,
             )
+
+        
+
+    # =====================================================
+    # Debug
+    # =====================================================
+
+    def __repr__(self) -> str:
+        fonts = ", ".join(self.list())
+
+        return (
+            f"<FontManager "
+            f"current={self.current!r} "
+            f"fonts=[{fonts}]>"
+        )

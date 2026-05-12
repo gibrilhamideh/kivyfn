@@ -5,9 +5,8 @@ import asyncio
 import importlib
 
 from kivy.app import App
+from kivyfn.runtime.context import FnBootstrapContext
 
-from kivyfn.i18n import i18n
-from kivyfn.fonts import fonts
 
 if TYPE_CHECKING:
     from kivyfn.runtime.runtime import FnServerRuntime
@@ -24,42 +23,25 @@ class FnBaseApp(App):
     # -------------------------------------------------
     # Bootstrap
     # -------------------------------------------------
-    def _bootstrap(self):
-        self._load_modules()
-        self._load_fonts()
-        self._load_i18n()
+    def _bootstrap(self) -> None:
+        ctx = FnBootstrapContext(self.fn)
+        self._load_modules(ctx)
 
-    # -------------------------------------------------
-    # Boot Steps
-    # -------------------------------------------------
-    def _load_fonts(self):
-        if self.fn.config.locales_dir is None:
-            return
+    def _load_modules(self, ctx: FnBootstrapContext) -> None:
+        self._try_module("kivyfn.bootstrap", ctx)
+        self._try_module("kivyfn.ui.bootstrap", ctx)
+        self._try_module("kivyfn.store.bootstrap", ctx)
 
-        path = self.fn.config.locales_dir / "fonts"
-        fonts.load(path)
-
-    def _load_i18n(self):
-        locales_dir = self.fn.config.locales_dir
-
-        if locales_dir is None:
-            return
-
-        i18n.configure(locales_dir)
-        language = self.fn.settings.get("language", "en")
-        i18n.load(language)
-
-    def _load_modules(self):
-        self._try_module("kivyfn.bootstrap")
-        self._try_module("kivyfn.ui.bootstrap")
-        self._try_module("kivyfn.store.bootstrap")
-
-    def _try_module(self, module: str) -> None:
+    def _try_module(self, module: str, ctx: FnBootstrapContext) -> None:
         try:
             m = importlib.import_module(module)
-            m.bootstrap()
         except ModuleNotFoundError:
-            pass
+            return
+
+        bootstrap = getattr(m, "bootstrap", None)
+
+        if bootstrap is not None:
+            bootstrap(ctx)
 
     # -------------------------------------------------
     # App Helpers

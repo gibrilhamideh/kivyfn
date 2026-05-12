@@ -1,3 +1,3 @@
 from .manager import I18n
 
-i18n = I18n()
+__all__ = ["I18n"]
