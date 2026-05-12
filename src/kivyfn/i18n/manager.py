@@ -18,7 +18,7 @@ class I18n(EventDispatcher):
 
         self.load(lang)
 
-    def __call__(self, key: str, lang: str, **params: Any) -> str:
+    def __call__(self, key: str, **params: Any) -> str:
         template = self._translations.get(key, key)
 
         if not params:

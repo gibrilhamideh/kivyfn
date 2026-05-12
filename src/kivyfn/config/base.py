@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
+from kivyfn.config.environment import FnEnvironmentConfig
 from kivyfn.config.fonts import FnFontConfig
 from kivyfn.config.graphics import FnGraphicsConfig
 from kivyfn.config.input import FnInputConfig
@@ -16,7 +17,9 @@ class FnConfig:
     the application of various sub-configs (fonts, input, graphics, etc.).
     """
 
-    # Default configuration instances (Class attributes to be overridden)
+    environment: FnEnvironmentConfig = FnEnvironmentConfig()
+    """Controls environment variables."""
+
     fonts: FnFontConfig = FnFontConfig()
     """Controls application font registration and defaults."""
 
@@ -35,7 +38,6 @@ class FnConfig:
     widgets: FnWidgetsConfig = FnWidgetsConfig()
     """Provides global defaults for widget behavior and styling."""
 
-    # Path Overrides (Defaults to None to trigger auto-resolution in __init__)
     resources_dir: Path
     """Application resources directory. Defaults to `app_dir/resources`."""
 
@@ -89,6 +91,7 @@ class FnConfig:
 
     def apply(self) -> None:
         """Triggers the .apply() method on all sub-configuration objects."""
+        self.environment.apply()
         self.fonts.apply()
         self.graphics.apply()
         self.input.apply()
