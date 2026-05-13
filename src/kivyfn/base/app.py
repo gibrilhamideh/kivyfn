@@ -18,6 +18,7 @@ class FnBaseApp(App):
     def __init__(self, fn: FnServerRuntime | FnClientRuntime, **kwargs):
         super().__init__(**kwargs)
         self.fn = fn
+        self._runtime_stopped = False
         self._bootstrap()
 
     # -------------------------------------------------
@@ -63,8 +64,14 @@ class FnBaseApp(App):
     # -------------------------------------------------
     # Events
     # -------------------------------------------------
-    def on_stop(self, *_):
+    def stop_runtime(self) -> None:
+        if self._runtime_stopped:
+            return
+
+        self._runtime_stopped = True
         self.fn.stop()
 
+    def on_stop(self, *_):
+        self.stop_runtime()
 
 
