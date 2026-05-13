@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from kivy.config import Config
 
 
 @dataclass(slots=True)
@@ -23,6 +22,8 @@ class FnWidgetsConfig:
     """
 
     def apply(self) -> None:
+
+        from kivy.config import Config
         Config.set("widgets", "scroll_distance", str(self.scroll_distance))
         Config.set("widgets", "scroll_timeout", str(self.scroll_timeout))
         Config.set("widgets", "scroll_moves", str(self.scroll_moves))

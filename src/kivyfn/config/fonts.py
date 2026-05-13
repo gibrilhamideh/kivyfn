@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
+from dataclasses import dataclass
 
-from kivy.config import Config
 from kivyfn.paths import framework_resource
 
 
@@ -55,6 +54,8 @@ class FnFontConfig:
     """
 
     def apply(self) -> None:
+
+        from kivy.config import Config
         Config.set(
             "kivy",
             "default_font",

@@ -92,11 +92,11 @@ class FnConfig:
     def apply(self) -> None:
         """Triggers the .apply() method on all sub-configuration objects."""
         self.environment.apply()
+        self.logging.apply()
         self.fonts.apply()
         self.graphics.apply()
         self.input.apply()
         self.keyboard.apply()
-        self.logging.apply()
         self.widgets.apply()
 
 

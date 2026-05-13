@@ -17,6 +17,7 @@ class FnProcessManager(Generic[ProcessName]):
         self._registered: dict[ProcessName, FnProcessConfig[ProcessName]] = {}
         self._running: dict[ProcessName, FnProcess] = {}
         self._cleanup_callbacks: list[CleanupCallback[ProcessName]] = []
+        self._log_queue = context.Queue()
 
     def register(
         self,
@@ -111,3 +112,7 @@ class FnProcessManager(Generic[ProcessName]):
 
         for callback in list(self._cleanup_callbacks):
             callback(name)
+
+    @property
+    def log_queue(self):
+        return self._log_queue

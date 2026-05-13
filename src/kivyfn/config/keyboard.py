@@ -2,8 +2,6 @@ from __future__ import annotations
 from typing import Literal
 from dataclasses import dataclass
 
-from kivy.config import Config
-
 KeyboardMode = Literal[
     "",
     "system",
@@ -37,5 +35,6 @@ class FnKeyboardConfig:
     """
 
     def apply(self) -> None:
+        from kivy.config import Config
         Config.set("kivy", "keyboard_mode", self.mode)
         Config.set("kivy", "keyboard_layout", self.layout)

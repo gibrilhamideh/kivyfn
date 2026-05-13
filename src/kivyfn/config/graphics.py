@@ -2,8 +2,6 @@ from __future__ import annotations
 from typing import Literal
 from dataclasses import dataclass
 
-from kivy.config import Config
-
 FullScreenMode = Literal[
     False,
     True,
@@ -135,6 +133,8 @@ class FnGraphicsConfig:
     """
 
     def apply(self) -> None:
+
+        from kivy.config import Config
         Config.set("graphics", "width", str(self.width))
         Config.set("graphics", "height", str(self.height))
         Config.set("graphics", "resizable", str(int(self.resizable)))
