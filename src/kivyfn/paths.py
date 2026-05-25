@@ -1,108 +1,128 @@
 """
-kivyfn.resources
-================
+kivyfn.paths
+=============
 
-Utilities for resolving file paths for both framework assets and
-developer application assets.
+Utilities for resolving package-relative paths in a runtime-safe way.
 
-The framework operates with two distinct resource origins:
+These helpers work consistently across:
 
-1. Framework resources
-   Files that ship with framework packages such as ``kivyfn``,
-   ``kivyfn.ui`` or other extension modules.
+- development environments
+- installed packages
+- editable installs
+- namespace packages
+- PyInstaller bundles
 
-2. Application resources
-   Files that belong to the developer's application such as images,
-   configuration files, or custom fonts.
-
-These helpers provide a consistent way to access both locations
-whether the application is running normally or bundled with
-PyInstaller.
+The system treats both framework packages and application packages
+the same way through Python's import system.
 
 Examples
 --------
 
-Accessing a framework asset::
+Framework package paths::
 
-    from kivyfn.resources import framework_resource
+    from kivyfn.paths import package_path
 
-    font_path = framework_resource(
+    font_path = package_path(
         "kivyfn.ui",
         "resources",
         "fonts",
-        "NotoSans-Regular.ttf"
+        "NotoSans-Regular.ttf",
     )
 
 
-Accessing an application asset::
+Application package paths::
 
-    from kivyfn.resources import app_resource
+    from kivyfn.paths import package_path
 
-    logo_path = app_resource("resources", "images", "logo.png")
+    logo_path = package_path(
+        "app",
+        "resources",
+        "images",
+        "logo.png",
+    )
 """
 
 from __future__ import annotations
 
 import sys
+
 from pathlib import Path
 from importlib import resources
 
 
-# ---------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------
+# =====================================================================
+# Runtime
+# =====================================================================
 
 
-def _runtime_root() -> Path | None:
+def runtime_dir() -> Path | None:
     """
     Return the runtime extraction directory.
 
     When running inside a PyInstaller bundle, files are extracted to
-    ``sys._MEIPASS``. Otherwise this returns ``None``.
+    ``sys._MEIPASS``.
+
+    Returns
+    -------
+    Path | None
+        Extraction directory if running from a bundle,
+        otherwise ``None``.
     """
+
     if hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)  # pyright: ignore
+
     return None
 
 
-# ---------------------------------------------------------------------
-# Framework resources
-# ---------------------------------------------------------------------
+# =====================================================================
+# Package paths
+# =====================================================================
 
 
-def framework_resource(package: str, *parts: str) -> Path:
+def package_path(
+    package: str,
+    *parts: str,
+) -> Path:
     """
-    Resolve a path to a resource bundled with a framework package.
+    Resolve a runtime-safe path inside a Python package.
 
     Parameters
     ----------
     package:
-        Python package containing the resource
-        (e.g. ``"kivyfn.ui"`` or ``"kivyfn.threed"``).
+        Importable Python package name.
+
+        Examples::
+
+            "app"
+            "kivyfn.ui"
+            "kivyfn.three"
 
     *parts:
-        Path components relative to the package root.
+        Additional path components relative to the package root.
 
     Returns
     -------
     Path
-        Absolute path to the requested resource.
+        Absolute path to the requested location.
 
     Notes
     -----
-    This works for:
+    This works correctly for:
 
-    - normal development environments
+    - development environments
     - installed packages
+    - editable installs
     - namespace packages
     - PyInstaller bundles
     """
 
-    runtime = _runtime_root()
+    runtime = runtime_dir()
 
     if runtime:
-        base = runtime / package.replace(".", "/")
-        return base.joinpath(*parts)
+        return runtime / package.replace(".", "/") / Path(*parts)
 
     base = resources.files(package)
-    return Path(base.joinpath(*parts))  # pyright: ignore
+    resource = base.joinpath(*parts)
+
+    return Path(str(resource))

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from dataclasses import dataclass
 
-from kivyfn.paths import framework_resource
+from kivyfn.paths import package_path
 
 
 @dataclass(slots=True)
@@ -13,7 +13,7 @@ class FnFontConfig:
     Global default font alias used by Kivy widgets.
     """
 
-    regular_path: Path = framework_resource(
+    regular_path: Path = package_path(
         "kivyfn",
         "resources",
         "fonts",
@@ -23,7 +23,7 @@ class FnFontConfig:
     Regular font file path.
     """
 
-    italic_path: Path = framework_resource(
+    italic_path: Path = package_path(
         "kivyfn",
         "resources",
         "fonts",
@@ -33,7 +33,7 @@ class FnFontConfig:
     Italic font file path.
     """
 
-    bold_path: Path = framework_resource(
+    bold_path: Path = package_path(
         "kivyfn",
         "resources",
         "fonts",
@@ -43,7 +43,7 @@ class FnFontConfig:
     Bold font file path.
     """
 
-    bold_italic_path: Path = framework_resource(
+    bold_italic_path: Path = package_path(
         "kivyfn",
         "resources",
         "fonts",
