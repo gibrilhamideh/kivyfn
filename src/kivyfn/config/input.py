@@ -14,7 +14,7 @@ class FnMouseConfig:
     Ignore mouse events while another touch provider is active.
     """
 
-    disable_multitouch: bool = True
+    disable_multitouch: bool = False
     """
     Disable right, middle, and ctrl-left multitouch emulation.
     """

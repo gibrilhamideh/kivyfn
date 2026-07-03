@@ -9,24 +9,13 @@ from kivyfn.logging.multiprocessing import (
     create_queue_listener,
 )
 
+
 def get_logger(name: str | None = None) -> logging.Logger:
-    if not name:
+    if name is None:
         return logging.getLogger("kivyfn")
 
-    if name.startswith("kivyfn."):
-        return logging.getLogger(name)
+    return logging.getLogger(name)
 
-    return logging.getLogger(f"kivyfn.{name}")
-
-
-def get_app_logger(name: str | None = None) -> logging.Logger:
-    if not name:
-        return logging.getLogger("app")
-
-    if name.startswith("app."):
-        return logging.getLogger(name)
-
-    return logging.getLogger(f"app.{name}")
 
 
 __all__ = (
@@ -35,5 +24,4 @@ __all__ = (
     "configure_process_logging",
     "create_queue_listener",
     "get_logger",
-    "get_app_logger",
 )

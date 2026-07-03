@@ -11,15 +11,29 @@ from kivy.properties import StringProperty
 class I18n(EventDispatcher):
     lang = StringProperty("en")
 
-    def __init__(self, locales_dir: Path, lang: str = "en") -> None:
+    def __init__(
+        self,
+        locales_dir: Path,
+        lang: str = "en",
+    ) -> None:
         super().__init__()
+
         self.locales_dir = locales_dir
-        self._translations: dict[str, str] = {}
+        self._translations: dict[str, Any] = {}
 
         self.load(lang)
 
-    def __call__(self, key: str, **params: Any) -> str:
-        template = self._translations.get(key, key)
+    def __call__(
+        self,
+        key: str,
+        **params: Any,
+    ) -> str:
+        template = self._resolve(
+            key,
+        )
+
+        if template is None:
+            return f"<{key}>"
 
         if not params:
             return template
@@ -29,23 +43,49 @@ class I18n(EventDispatcher):
         except Exception:
             return template
 
-    def load(self, lang: str) -> None:
-        if self.locales_dir is None:
-            return
-
+    def load(
+        self,
+        lang: str,
+    ) -> None:
         file_path = self.locales_dir / f"{lang}.json"
 
         if not file_path.exists():
-            raise FileNotFoundError(f"Translation file not found: {file_path}")
+            raise FileNotFoundError(
+                f"Translation file not found: {file_path}"
+            )
 
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 translations = json_load(f)
-        except JSONDecodeError:
-            return
+        except JSONDecodeError as exc:
+            raise ValueError(
+                f"Invalid JSON translation file: {file_path}"
+            ) from exc
 
         if not isinstance(translations, dict):
-            raise ValueError(f"Invalid translation file format: {file_path}")
+            raise ValueError(
+                f"Invalid translation file format: {file_path}"
+            )
 
         self._translations = translations
         self.lang = lang
+
+    def _resolve(
+        self,
+        key: str,
+    ) -> str | None:
+        value: Any = self._translations
+
+        for part in key.split("."):
+            if not isinstance(value, dict):
+                return None
+
+            value = value.get(part)
+
+            if value is None:
+                return None
+
+        if not isinstance(value, str):
+            return None
+
+        return value

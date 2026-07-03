@@ -6,12 +6,12 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class FnWidgetsConfig:
-    scroll_distance: int = 20
+    scroll_distance: int = 10
     """
     Default scroll gesture distance.
     """
 
-    scroll_timeout: int = 55
+    scroll_timeout: int = 250
     """
     Default scroll timeout in milliseconds.
     """

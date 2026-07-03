@@ -1,10 +1,14 @@
+# kivyfn/base/app.py
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
+from typing import TYPE_CHECKING, Coroutine, Any
 
 import asyncio
 import importlib
 
 from kivy.app import App
+
+from kivyfn.logging import get_logger
 from kivyfn.runtime.context import FnBootstrapContext
 
 
@@ -13,8 +17,10 @@ if TYPE_CHECKING:
     from kivyfn.runtime.runtime import FnClientRuntime
 
 
-class FnBaseApp(App):
+logger = get_logger(__name__)
 
+
+class FnBaseApp(App):
     def __init__(self, fn: FnServerRuntime | FnClientRuntime, **kwargs):
         super().__init__(**kwargs)
         self.fn = fn
@@ -32,6 +38,7 @@ class FnBaseApp(App):
         self._try_module("kivyfn.bootstrap", ctx)
         self._try_module("kivyfn.ui.bootstrap", ctx)
         self._try_module("kivyfn.store.bootstrap", ctx)
+        self._try_module("kivyfn.three.bootstrap", ctx)
 
     def _try_module(self, module: str, ctx: FnBootstrapContext) -> None:
         try:
@@ -47,16 +54,21 @@ class FnBaseApp(App):
     # -------------------------------------------------
     # App Helpers
     # -------------------------------------------------
-    def create_task(self, coro):
-        task = asyncio.create_task(coro)
+    def create_task(
+        self,
+        coro: Coroutine[Any, Any, Any],
+        *,
+        name: str | None = None,
+    ) -> asyncio.Task[Any]:
+        task = asyncio.create_task(coro, name=name)
 
-        def done(t):
+        def done(t: asyncio.Task[Any]) -> None:
             try:
                 t.result()
             except asyncio.CancelledError:
                 pass
-            except Exception as exc:
-                print(f"Task failed: {exc!r}")
+            except Exception:
+                logger.exception("Task failed")
 
         task.add_done_callback(done)
         return task
