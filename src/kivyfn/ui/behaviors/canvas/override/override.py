@@ -1,0 +1,2 @@
+class FnCanvasOverrideBehavior:
+    pass

@@ -1,0 +1,109 @@
+# kivyfn/ui/behaviors/field/border/border.kv
+
+<FnFieldBorderBehavior>:
+    canvas.after:
+        Color:
+            rgba: (0, 0, 0, 0) if root.border_color is None else root.border_color
+
+        # Top-left corner
+        SmoothLine:
+            width: root.border_width
+            circle:
+                ( \
+                root.x + root.radius[0], \
+                root.y + root.height - root.radius[0], \
+                root.radius[0], \
+                270, \
+                360, \
+                )
+
+        # Top-right corner
+        SmoothLine:
+            width: root.border_width
+            circle:
+                ( \
+                root.x + root.width - root.radius[1], \
+                root.y + root.height - root.radius[1], \
+                root.radius[1], \
+                0, \
+                90, \
+                )
+
+        # Bottom-right corner
+        SmoothLine:
+            width: root.border_width
+            circle:
+                ( \
+                root.x + root.width - root.radius[2], \
+                root.y + root.radius[2], \
+                root.radius[2], \
+                90, \
+                180, \
+                )
+
+        # Bottom-left corner
+        SmoothLine:
+            width: root.border_width
+            circle:
+                ( \
+                root.x + root.radius[3], \
+                root.y + root.radius[3], \
+                root.radius[3], \
+                180, \
+                270, \
+                )
+
+        # Left side
+        SmoothLine:
+            width: root.border_width
+            points:
+                [ \
+                root.x, \
+                root.y + root.height - root.radius[0], \
+                root.x, \
+                root.y + root.radius[3], \
+                ]
+
+        # Bottom side
+        SmoothLine:
+            width: root.border_width
+            points:
+                [ \
+                root.x + root.radius[3], \
+                root.y, \
+                root.x + root.width - root.radius[2], \
+                root.y, \
+                ]
+
+        # Right side
+        SmoothLine:
+            width: root.border_width
+            points:
+                [ \
+                root.x + root.width, \
+                root.y + root.radius[2], \
+                root.x + root.width, \
+                root.y + root.height - root.radius[1], \
+                ]
+
+        # Top-left side
+        SmoothLine:
+            width: root.border_width
+            points:
+                [ \
+                root.x + root.radius[0], \
+                root.y + root.height, \
+                root.x + min(max(root.border_gap_x, root.radius[0]), root.width - root.radius[1]), \
+                root.y + root.height, \
+                ]
+
+        # Top-right side
+        SmoothLine:
+            width: root.border_width
+            points:
+                [ \
+                root.x + max(min(root.border_gap_x + root.border_gap_width, root.width - root.radius[1]), root.radius[0]), \
+                root.y + root.height, \
+                root.x + root.width - root.radius[1], \
+                root.y + root.height, \
+                ]

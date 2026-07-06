@@ -1,0 +1,67 @@
+# kivyfn/ui/behaviors/field/box/box.kv
+
+<FnFieldBoxBehavior>:
+    padding_left:
+        root.content_padding + ( \
+        root.leading_scaled_size[0] + root.leading_padding \
+        if root.leading_widget else 0 \
+        )
+
+    padding_right:
+        root.content_padding + ( \
+        root.trailing_scaled_size[0] + root.trailing_padding \
+        if root.trailing_widget else 0 \
+        )
+
+    canvas.after:
+        # --- Leading Decorator Texture
+        Color:
+            rgba: root.leading_color if root.leading_widget else [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.leading_widget.texture if root.leading_widget else None
+            size: root.leading_scaled_size if root.leading_widget else (0, 0)
+            pos:
+                ( \
+                root.x + root.leading_x, \
+                root.y + root.leading_y \
+                )
+
+        # --- Trailing Decorator Texture
+        Color:
+            rgba: root.trailing_color if root.trailing_widget else [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.trailing_widget.texture if root.trailing_widget else None
+            size: root.trailing_scaled_size if root.trailing_widget else (0, 0)
+            pos:
+                ( \
+                root.x + root.trailing_x, \
+                root.y + root.trailing_y \
+                )
+
+        # --- Hint Texture
+        Color:
+            rgba: root.hint_color if root.hint_widget else [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.hint_widget.texture if root.hint_widget else None
+            size: root.hint_scaled_size if root.hint_widget else (0, 0)
+            pos:
+                ( \
+                root.x + root.hint_x, \
+                root.y + root.hint_y \
+                )
+
+        # --- Message Texture
+        Color:
+            rgba: root.message_color if root.message_widget else [0, 0, 0, 0]
+
+        Rectangle:
+            texture: root.message_widget.texture if root.message_widget else None
+            size: root.message_scaled_size if root.message_widget else (0, 0)
+            pos:
+                ( \
+                root.x + root.message_x, \
+                root.y + root.message_y \
+                )

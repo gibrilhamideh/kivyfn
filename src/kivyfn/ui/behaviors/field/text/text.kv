@@ -1,0 +1,14 @@
+# kivyfn/ui/behaviors/field/text/text.kv
+<FnFieldTextBehavior>
+    canvas.before:
+        Color:
+            rgba: self.cursor_color if self.focus and not self._cursor_blink else (0, 0, 0, 0)
+
+        Rectangle:
+            group: "rectangle-cursor-blink"
+            pos: (int(x) for x in self.cursor_pos)
+            size: (self.cursor_width, -self.line_height) if self.focus and not self._cursor_blink else (0, 0)
+
+        Color:
+            group: "text-color"
+            rgba: self.text_color

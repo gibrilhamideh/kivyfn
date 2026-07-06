@@ -1,0 +1,18 @@
+<FnClipBehavior>:
+    canvas.before:
+        StencilPush
+        
+        RoundedRectangle:
+            pos: self.pos if not isinstance(self, RelativeLayout) else (0, 0)
+            size: self.size
+            radius: self.radius
+        StencilUse
+
+
+    canvas.after:
+        StencilUnUse
+        RoundedRectangle:
+            pos: self.pos if not isinstance(self, RelativeLayout) else (0, 0)
+            size: self.size
+            radius: self.radius
+        StencilPop
