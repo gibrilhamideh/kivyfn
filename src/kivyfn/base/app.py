@@ -8,13 +8,18 @@ import asyncio
 import importlib
 
 from kivy.app import App
+from kivy.properties import ObjectProperty
 
 from kivyfn.logging import get_logger
 from kivyfn.runtime.asyncio import tasks
 from kivyfn.runtime.context import FnBootstrapContext
 
+from kivyfn.ui.theme import Theme
+from kivyfn.ui.feedback.snackbar import snackbars
+
 
 if TYPE_CHECKING:
+    from kivyfn.ui.root import FnRoot
     from kivyfn.runtime.runtime import FnClientRuntime
     from kivyfn.runtime.runtime import FnServerRuntime
 
@@ -23,12 +28,19 @@ logger = get_logger(__name__)
 
 
 class FnBaseApp(App):
+    theme: Theme = ObjectProperty(rebind=True)
+
+
+    if TYPE_CHECKING:
+        root: FnRoot
+
     def __init__(
         self,
         fn: FnServerRuntime | FnClientRuntime,
         **kwargs: Any,
     ) -> None:
         self.fn = fn
+        self.theme = Theme()
         self._shutdown_started = False
 
         super().__init__(**kwargs)
@@ -131,5 +143,16 @@ class FnBaseApp(App):
 
         Async cleanup is performed by shutdown() from the entry point.
         """
+
+    def on_start(self, *_: Any) -> None:
+        """
+        Kivy synchronous start event.
+
+        Subclasses that override this method must call
+        `super().on_start(*args)`.
+        """
+        snackbars.attach(self.root)
+        
+
 
 

@@ -1,7 +1,7 @@
 # kivyfn/runtime/asyncio/tasks.py
 from __future__ import annotations
 
-from typing import Any, Coroutine
+from typing import Any, Callable, Coroutine, TypeVar
 
 import asyncio
 
@@ -9,6 +9,9 @@ from kivyfn.logging import get_logger
 
 
 logger = get_logger(__name__)
+
+
+T = TypeVar("T")
 
 
 class FnTaskManager:
@@ -19,13 +22,17 @@ class FnTaskManager:
 
     def create(
         self,
-        coro: Coroutine[Any, Any, Any],
+        coro: Coroutine[Any, Any, T],
         *,
         name: str | None = None,
-    ) -> asyncio.Task[Any]:
+        callback: Callable[[T], None] | None = None,
+    ) -> asyncio.Task[T]:
         if self._closing:
             coro.close()
-            raise RuntimeError("Cannot create task while task manager is closing")
+
+            raise RuntimeError(
+                "Cannot create task while task manager is closing"
+            )
 
         task = asyncio.create_task(
             coro,
@@ -33,7 +40,13 @@ class FnTaskManager:
         )
 
         self._tasks.add(task)
-        task.add_done_callback(self._on_done)
+
+        task.add_done_callback(
+            lambda completed: self._on_done(
+                completed,
+                callback,
+            )
+        )
 
         return task
 
@@ -75,18 +88,38 @@ class FnTaskManager:
 
     @property
     def pending_count(self) -> int:
-        return sum(1 for task in self._tasks if not task.done())
+        return sum(
+            1
+            for task in self._tasks
+            if not task.done()
+        )
 
-    def _on_done(self, task: asyncio.Task[Any]) -> None:
+    def _on_done(
+        self,
+        task: asyncio.Task[T],
+        callback: Callable[[T], None] | None,
+    ) -> None:
         self._tasks.discard(task)
 
         try:
-            task.result()
+            result = task.result()
         except asyncio.CancelledError:
-            pass
+            return
         except Exception:
             logger.exception(
                 "Async task failed: %s",
+                task.get_name(),
+            )
+            return
+
+        if callback is None:
+            return
+
+        try:
+            callback(result)
+        except Exception:
+            logger.exception(
+                "Async task callback failed: %s",
                 task.get_name(),
             )
 
@@ -94,15 +127,30 @@ class FnTaskManager:
         self,
         coro: Coroutine[Any, Any, Any],
     ) -> str:
-        qualname = getattr(coro, "__qualname__", None)
+        qualname = getattr(
+            coro,
+            "__qualname__",
+            None,
+        )
+
         if isinstance(qualname, str):
             return qualname
 
-        name = getattr(coro, "__name__", None)
+        name = getattr(
+            coro,
+            "__name__",
+            None,
+        )
+
         if isinstance(name, str):
             return name
 
-        code = getattr(coro, "cr_code", None)
+        code = getattr(
+            coro,
+            "cr_code",
+            None,
+        )
+
         if code is not None:
             return code.co_name
 

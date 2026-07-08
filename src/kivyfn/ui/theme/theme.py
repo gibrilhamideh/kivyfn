@@ -7,8 +7,8 @@ from kivyfn.ui.theme.spacing import ThemeSpacing
 
 
 class Theme(EventDispatcher):
-    color = ObjectProperty(None)
-    spacing = ObjectProperty(None)
+    color = ObjectProperty(None, rebind=True)
+    spacing = ObjectProperty(None, rebind=True)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

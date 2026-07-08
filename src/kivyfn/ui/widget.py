@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+from kivy.app import App
 from kivy.properties import BooleanProperty, ColorProperty
+
+if TYPE_CHECKING:
+    from kivyfn.base.app import FnBaseApp
 
 
 class FnWidget:
@@ -9,6 +13,16 @@ class FnWidget:
     fg_color = ColorProperty(None, allownone=True)
 
     __events__ = ("on_attach", "on_detach")
+
+    @property
+    def app(self) -> FnBaseApp:
+        app = App.get_running_app()
+        if app is None:
+            raise RuntimeError(
+                f"{type(self).__name__} has no running application."
+            )
+
+        return cast("FnBaseApp", app)
 
     def add_widget(self, widget: Any, *args: Any, **kwargs: Any) -> None:
         self._validate_fn_child(widget)
