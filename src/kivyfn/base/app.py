@@ -11,7 +11,7 @@ from kivy.app import App
 from kivy.properties import ObjectProperty
 
 from kivyfn.logging import get_logger
-from kivyfn.runtime.asyncio import tasks
+from kivyfn.runtime.asyncio import FnTasks
 from kivyfn.runtime.context import FnBootstrapContext
 
 from kivyfn.ui.theme import Theme
@@ -111,7 +111,7 @@ class FnBaseApp(App):
         *,
         name: str | None = None,
     ) -> asyncio.Task[Any]:
-        return tasks.create(coro, name=name)
+        return FnTasks.create(coro, name=name)
 
     # =================================== #
     # Shutdown

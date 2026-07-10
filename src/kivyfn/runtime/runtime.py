@@ -11,7 +11,7 @@ from kivyfn.config import FnConfig
 from kivyfn.fonts import FontManager
 from kivyfn.i18n import I18n
 from kivyfn.logging import get_logger
-from kivyfn.runtime.asyncio import tasks
+from kivyfn.runtime.asyncio import FnTasks
 from kivyfn.runtime.process import FnProcessManager
 from kivyfn.runtime.state.manager import FnSharedStateManager
 from kivyfn.runtime.transport.client import FnClientBus
@@ -67,7 +67,7 @@ class FnRuntimeBase:
                 logger.exception("Runtime stop failed")
 
             try:
-                await tasks.stop()
+                await FnTasks.stop()
             except Exception:
                 logger.exception("Task manager shutdown failed")
 
@@ -127,7 +127,7 @@ class FnServerRuntime(FnRuntimeBase):
         )
 
     def start(self) -> None:
-        tasks.create(
+        FnTasks.create(
             self.bus.start(),
             name="server-bus",
         )
@@ -157,7 +157,7 @@ class FnClientRuntime(FnRuntimeBase):
         self.window_controller = FnWindowController(bus=self.bus)
 
     def start(self) -> None:
-        tasks.create(
+        FnTasks.create(
             self.bus.start(),
             name="client-bus",
         )

@@ -1,7 +1,7 @@
 # kivyfn/runtime/asyncio/tasks.py
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, TypeVar
+from typing import Any, Callable, ClassVar, Coroutine, TypeVar
 
 import asyncio
 
@@ -14,20 +14,26 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-class FnTaskManager:
-    def __init__(self) -> None:
-        self._tasks: set[asyncio.Task[Any]] = set()
-        self._closing = False
-        self._stopped = False
+class FnTasks:
+    _tasks: ClassVar[set[asyncio.Task[Any]]] = set()
+    _closing: ClassVar[bool] = False
+    _stopped: ClassVar[bool] = False
 
+    def __new__(cls) -> FnTasks:
+        raise TypeError(
+            f"{cls.__name__} is a global runtime service "
+            "and cannot be instantiated"
+        )
+
+    @classmethod
     def create(
-        self,
+        cls,
         coro: Coroutine[Any, Any, T],
         *,
         name: str | None = None,
         callback: Callable[[T], None] | None = None,
     ) -> asyncio.Task[T]:
-        if self._closing:
+        if cls._closing:
             coro.close()
 
             raise RuntimeError(
@@ -36,13 +42,13 @@ class FnTaskManager:
 
         task = asyncio.create_task(
             coro,
-            name=name or self._resolve_coro_name(coro),
+            name=name or cls._resolve_coro_name(coro),
         )
 
-        self._tasks.add(task)
+        cls._tasks.add(task)
 
         task.add_done_callback(
-            lambda completed: self._on_done(
+            lambda completed: cls._on_done(
                 completed,
                 callback,
             )
@@ -50,29 +56,25 @@ class FnTaskManager:
 
         return task
 
-    async def stop(self) -> None:
-        """
-        Cancels and waits for all managed tasks.
-
-        Safe to call multiple times.
-        Skips the currently running task so shutdown does not cancel itself.
-        """
-        if self._stopped:
+    @classmethod
+    async def stop(cls) -> None:
+        if cls._stopped:
             return
 
-        self._closing = True
+        cls._closing = True
 
         current = asyncio.current_task()
 
         pending = tuple(
             task
-            for task in self._tasks
-            if task is not current and not task.done()
+            for task in cls._tasks
+            if task is not current
+            and not task.done()
         )
 
         if not pending:
-            self._tasks.clear()
-            self._stopped = True
+            cls._tasks.clear()
+            cls._stopped = True
             return
 
         for task in pending:
@@ -83,28 +85,36 @@ class FnTaskManager:
             return_exceptions=True,
         )
 
-        self._tasks.difference_update(pending)
-        self._stopped = True
+        cls._tasks.difference_update(
+            pending,
+        )
 
-    @property
-    def pending_count(self) -> int:
+        cls._stopped = True
+
+    @classmethod
+    def pending_count(cls) -> int:
         return sum(
             1
-            for task in self._tasks
+            for task in cls._tasks
             if not task.done()
         )
 
+    @classmethod
     def _on_done(
-        self,
+        cls,
         task: asyncio.Task[T],
         callback: Callable[[T], None] | None,
     ) -> None:
-        self._tasks.discard(task)
+        cls._tasks.discard(
+            task,
+        )
 
         try:
             result = task.result()
+
         except asyncio.CancelledError:
             return
+
         except Exception:
             logger.exception(
                 "Async task failed: %s",
@@ -116,15 +126,18 @@ class FnTaskManager:
             return
 
         try:
-            callback(result)
+            callback(
+                result,
+            )
+
         except Exception:
             logger.exception(
                 "Async task callback failed: %s",
                 task.get_name(),
             )
 
+    @staticmethod
     def _resolve_coro_name(
-        self,
         coro: Coroutine[Any, Any, Any],
     ) -> str:
         qualname = getattr(
@@ -155,6 +168,3 @@ class FnTaskManager:
             return code.co_name
 
         return type(coro).__name__
-
-
-tasks = FnTaskManager()

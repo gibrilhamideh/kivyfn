@@ -133,12 +133,14 @@ THEME_FIELD_STYLE_ROLE = (
 # THEME BUTTON STYLE ROLES
 # ======================================== #
 ThemeCardStyleRole = Literal [
+    "none",
     "filled",
     "elevated",
     "outlined"
 ]
 
 THEME_CARD_STYLE_ROLE = (
+    "none",
     "filled",
     "elevated",
     "outlined"

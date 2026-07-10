@@ -41,6 +41,12 @@ def register():
     register("FnBlurLayout", module="kivyfn.ui.layouts.blurlayout")
 
 
+    # ---) Recycle View
+    register("FnRecycleView", module="kivyfn.ui.collections.recycleview")
+    register("FnRecycleBoxlayout", module="kivyfn.ui.collections.recycleview")
+    register("FnRecycleGridLayout", module="kivyfn.ui.collections.recycleview")
+
+
     # ---) Fields
     register("FnCompositeField", module="kivyfn.ui.fields.compostie")
     register("FnMaskField", module="kivyfn.ui.fields.mask")

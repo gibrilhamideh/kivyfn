@@ -66,7 +66,7 @@ class FnTouch:
     # ---------------------------------------------------------------------
 
     def on_touch_down(self, touch):
-        if self.disabled:
+        if self.disabled or not self.display: # pyright: ignore
             return super().on_touch_down(touch) # pyright: ignore
 
         if getattr(touch, "is_mouse_scrolling", False):
