@@ -40,6 +40,17 @@ class FnNumericField(FnBaseField):
         self.write_tab = False
 
     # ---------------------------------------------------------
+    # Property Event
+    # ---------------------------------------------------------
+    def on_number_type(self, *_: Any) -> None:
+        value = self._coerce_value(self.value)
+
+        if value is None:
+            return
+
+        self.value = value
+
+    # ---------------------------------------------------------
     # Value conversion
     # ---------------------------------------------------------
     def text_to_value(self) -> int | float | None:
