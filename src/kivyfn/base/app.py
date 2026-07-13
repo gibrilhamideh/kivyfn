@@ -15,7 +15,7 @@ from kivyfn.runtime.asyncio import FnTasks
 from kivyfn.runtime.context import FnBootstrapContext
 
 from kivyfn.ui.theme import Theme
-from kivyfn.ui.feedback.snackbar import snackbars
+from kivyfn.ui.feedback.snackbar import FnSnackbarManager
 
 
 if TYPE_CHECKING:
@@ -151,7 +151,7 @@ class FnBaseApp(App):
         Subclasses that override this method must call
         `super().on_start(*args)`.
         """
-        snackbars.attach(self.root)
+        FnSnackbarManager.attach(self.root)
         
 
 

@@ -13,7 +13,7 @@ from kivy.properties import (
 )
 
 
-class FnFieldBoxBehavior:
+class FnFieldLayoutBehavior:
     hint_widget: LabelBase | None = ObjectProperty(None, allownone=True, rebind=True)
     leading_widget: LabelBase | None = ObjectProperty(None, allownone=True, rebind=True)
     trailing_widget: LabelBase | None = ObjectProperty(None, allownone=True, rebind=True)

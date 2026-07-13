@@ -1,3 +1,4 @@
+# kivyfn/i18n/manger.py
 from __future__ import annotations
 
 from json import JSONDecodeError, load as json_load
@@ -6,6 +7,8 @@ from typing import Any
 
 from kivy.event import EventDispatcher
 from kivy.properties import StringProperty
+
+from .ref import I18nRef
 
 
 class I18n(EventDispatcher):
@@ -28,9 +31,7 @@ class I18n(EventDispatcher):
         key: str,
         **params: Any,
     ) -> str:
-        template = self._resolve(
-            key,
-        )
+        template = self._resolve(key)
 
         if template is None:
             return f"<{key}>"
@@ -38,8 +39,13 @@ class I18n(EventDispatcher):
         if not params:
             return template
 
+        resolved_params = {
+            name: self._resolve_param(value)
+            for name, value in params.items()
+        }
+
         try:
-            return template.format(**params)
+            return template.format(**resolved_params)
         except Exception:
             return template
 
@@ -55,8 +61,8 @@ class I18n(EventDispatcher):
             )
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                translations = json_load(f)
+            with open(file_path, "r", encoding="utf-8") as file:
+                translations = json_load(file)
         except JSONDecodeError as exc:
             raise ValueError(
                 f"Invalid JSON translation file: {file_path}"
@@ -87,5 +93,17 @@ class I18n(EventDispatcher):
 
         if not isinstance(value, str):
             return None
+
+        return value
+
+    def _resolve_param(
+        self,
+        value: Any,
+    ) -> Any:
+        if isinstance(value, I18nRef):
+            return self(
+                value.key,
+                **value.params,
+            )
 
         return value

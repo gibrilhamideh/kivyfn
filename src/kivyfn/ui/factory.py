@@ -40,12 +40,10 @@ def register():
     register("FnScaffold", module="kivyfn.ui.layouts.scaffold")
     register("FnBlurLayout", module="kivyfn.ui.layouts.blurlayout")
 
-
     # ---) Recycle View
     register("FnRecycleView", module="kivyfn.ui.collections.recycleview")
     register("FnRecycleBoxlayout", module="kivyfn.ui.collections.recycleview")
     register("FnRecycleGridLayout", module="kivyfn.ui.collections.recycleview")
-
 
     # ---) Fields
     register("FnCompositeField", module="kivyfn.ui.fields.compostie")
@@ -73,7 +71,7 @@ def register():
 
     # ---> field behaviors
     Builder.load_file(str(UI_BEHAVIOR_PATH / "field" / "border" / "border.kv"))
-    Builder.load_file(str(UI_BEHAVIOR_PATH / "field" / "box" / "box.kv"))
+    Builder.load_file(str(UI_BEHAVIOR_PATH / "field" / "layout" / "layout.kv"))
     Builder.load_file(str(UI_BEHAVIOR_PATH / "field" / "text" / "text.kv"))
 
 

@@ -1,6 +1,6 @@
 # kivyfn/ui/feedback/snackbar/__init__.py
 
-from .manager import FnSnackbarManager, snackbars
+from .manager import FnSnackbarManager
 from .snackbar import FnSnackbar
 
 

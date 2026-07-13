@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import TYPE_CHECKING, Any
-
-from kivy.event import EventDispatcher
+from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
@@ -13,95 +11,97 @@ if TYPE_CHECKING:
     from kivyfn.ui.root import FnRoot
 
 
-class FnSnackbarManager(EventDispatcher):
-    def __init__(
-        self,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(**kwargs)
-
-        self._root: FnRoot | None = None
-        self._queue: deque[FnSnackbar] = deque()
-        self._current: FnSnackbar | None = None
+class FnSnackbarManager:
+    _root: FnRoot | None = None
+    _queue: deque[FnSnackbar] = deque()
+    _current: FnSnackbar | None = None
 
     # =================================== #
     # Root
     # =================================== #
+
+    @classmethod
     def attach(
-        self,
+        cls,
         root: FnRoot,
     ) -> None:
-        if self._root is root:
+        if cls._root is root:
             return
 
-        self._root = root
-        self._open_next()
-
+        cls._root = root
+        cls._open_next()
 
     # =================================== #
     # Queue
     # =================================== #
 
+    @classmethod
     def queue(
-        self,
+        cls,
         snackbar: FnSnackbar,
     ) -> None:
-        if snackbar is self._current:
+        if snackbar is cls._current:
             return
 
-        if snackbar in self._queue:
+        if snackbar in cls._queue:
             return
 
-        self._queue.append(snackbar)
-        self._open_next()
+        cls._queue.append(snackbar)
+        cls._open_next()
 
+    @classmethod
     def remove(
-        self,
+        cls,
         snackbar: FnSnackbar,
     ) -> None:
-        if snackbar is self._current:
+        if snackbar is cls._current:
             snackbar.dismiss()
             return
 
         try:
-            self._queue.remove(snackbar)
+            cls._queue.remove(snackbar)
         except ValueError:
             pass
 
-    def clear(self) -> None:
-        self._queue.clear()
+    @classmethod
+    def clear(cls) -> None:
+        cls._queue.clear()
 
-        if self._current is not None:
-            self._current.dismiss()
+        if cls._current is not None:
+            cls._current.dismiss()
 
     # =================================== #
     # Lifecycle
     # =================================== #
 
-    def _open_next(self) -> None:
-
-        if not self._queue:
+    @classmethod
+    def _open_next(cls) -> None:
+        if cls._current is not None:
             return
 
-        root = self._root
+        if not cls._queue:
+            return
+
+        root = cls._root
         if root is None:
             return
 
-        snackbar = self._queue[0]
-        self._current = snackbar
+        snackbar = cls._queue[0]
+        cls._current = snackbar
 
         snackbar.bind(
-            on_dismiss=self._on_dismiss,
+            on_dismiss=cls._on_dismiss,
         )
 
         root.add_overlay(snackbar)
         snackbar.open()
 
+    @classmethod
     def _on_dismiss(
-        self,
+        cls,
         snackbar: FnSnackbar,
     ) -> None:
-        root = self._root
+        root = cls._root
 
         if root is None:
             raise RuntimeError(
@@ -110,42 +110,33 @@ class FnSnackbarManager(EventDispatcher):
             )
 
         snackbar.unbind(
-            on_dismiss=self._on_dismiss,
+            on_dismiss=cls._on_dismiss,
         )
 
         root.remove_overlay(snackbar)
 
-        if (
-            self._queue
-            and self._queue[0] is snackbar
-        ):
-            self._queue.popleft()
+        if cls._queue and cls._queue[0] is snackbar:
+            cls._queue.popleft()
         else:
             try:
-                self._queue.remove(snackbar)
+                cls._queue.remove(snackbar)
             except ValueError:
                 pass
 
-        if self._current is snackbar:
-            self._current = None
+        if cls._current is snackbar:
+            cls._current = None
 
-        self._open_next()
+        cls._open_next()
 
     # =================================== #
     # Queries
     # =================================== #
 
-    @property
-    def current(
-        self,
-    ) -> FnSnackbar | None:
-        return self._current
+    @classmethod
+    def current(cls) -> FnSnackbar | None:
+        return cls._current
 
-    @property
-    def pending(
-        self,
-    ) -> tuple[FnSnackbar, ...]:
-        return tuple(self._queue)
+    @classmethod
+    def pending(cls) -> tuple[FnSnackbar, ...]:
+        return tuple(cls._queue)
 
-
-snackbars = FnSnackbarManager()

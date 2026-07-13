@@ -12,13 +12,21 @@ from kivy.properties import (
     NumericProperty,
     OptionProperty,
     BooleanProperty,
+    AliasProperty,
 )
 
-from kivyfn.ui.behaviors.field import FnFieldBorderBehavior
+from kivyfn.ui.behaviors.field import (
+        FnFieldBorderBehavior,
+        FnFieldLayoutBehavior,
+)
+
 FieldHintMode = Literal["normal", "filled", "outlined"]
 
 
-class FnFieldHintEffect(FnFieldBorderBehavior):
+class FnFieldHintEffect(
+    FnFieldLayoutBehavior,
+    FnFieldBorderBehavior
+):
     hint_mode: FieldHintMode = OptionProperty(
         "normal",
         options=["normal", "filled", "outlined"],
@@ -41,6 +49,24 @@ class FnFieldHintEffect(FnFieldBorderBehavior):
     outlined_valign_offset = NumericProperty(dp(0))
 
     hint_active = BooleanProperty(False)
+
+    def _get_hint_max_width(self) -> float:
+        return max(
+            0.0,
+            self.width  # pyright: ignore
+            - self.padding_left  # pyright: ignore
+            - self.padding_right,  # pyright: ignore
+        )
+
+    hint_max_width = AliasProperty(
+        _get_hint_max_width,
+        None,
+        bind=(
+            "width",
+            "padding_left",
+            "padding_right",
+        ),
+    )
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
