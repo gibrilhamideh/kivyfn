@@ -11,6 +11,7 @@ from kivy.properties import (
 )
 from kivy.vector import Vector
 
+
 Touch_Mode = Literal["push", "toggle"]
 
 class FnTouch:

@@ -144,43 +144,67 @@ class FnI18nTextBehavior:
     i18n_key = StringProperty(None, allownone=True)
     i18n_params = DictProperty(None, allownone=True)
 
-    def on_i18n_key(self, _, value: str | None) -> None:
-        if self.attached: # pyright: ignore
-            self._apply_i18n_text()
+    def __init__(self, **kwargs: Any) -> None:
+        self._i18n_trigger = Clock.create_trigger(
+            self._apply_i18n_text,
+            -1,
+        )
+        super().__init__(**kwargs)  # pyright: ignore
 
-    def on_i18n_params(self, _, value: dict | None) -> None:
-        if self.attached: # pyright: ignore
-            self._apply_i18n_text()
+    def on_i18n_key(
+        self,
+        *_: Any,
+    ) -> None:
+        self._i18n_trigger()
+
+    def on_i18n_params(
+        self,
+        *_: Any,
+    ) -> None:
+        self._i18n_trigger()
 
     def _bind_i18n(self) -> None:
         i18n = self._get_i18n()
 
-        i18n.unbind(lang=self._on_i18n_lang)
-        i18n.bind(lang=self._on_i18n_lang)
+        i18n.unbind(
+            lang=self._on_i18n_lang,
+        )
+        i18n.bind(
+            lang=self._on_i18n_lang,
+        )
 
-        self._apply_i18n_text()
+        self._i18n_trigger()
 
     def _unbind_i18n(self) -> None:
         i18n = self._get_i18n()
-        if i18n is None:
-            return
+        i18n.unbind(
+            lang=self._on_i18n_lang,
+        )
 
-        i18n.unbind(lang=self._on_i18n_lang)
+    def _on_i18n_lang(
+        self,
+        *_: Any,
+    ) -> None:
+        self._i18n_trigger()
 
-    def _on_i18n_lang(self, *_: Any) -> None:
-        self._apply_i18n_text()
-
-    def _apply_i18n_text(self) -> None:
+    def _apply_i18n_text(
+        self,
+        *_: Any,
+    ) -> None:
         if self.i18n_key is None:
             return
 
         i18n = self._get_i18n()
-
-        params = self.i18n_params or {}
-        self.text = i18n(self.i18n_key, **params)
+        self.text = i18n(  # pyright: ignore
+            self.i18n_key,
+            **(self.i18n_params or {}),
+        )
 
     def _get_i18n(self) -> I18n:
-        app = cast(FnApp, FnApp.get_running_app())
+        app = cast(
+            FnApp,
+            FnApp.get_running_app(),
+        )
         return app.fn.i18n
 
     def on_attach(self) -> None:
