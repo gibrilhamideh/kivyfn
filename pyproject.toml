@@ -4,7 +4,8 @@ version = "0.0.1"
 description = "Application runtime framework for structured Kivy apps"
 requires-python = ">=3.10"
 dependencies = [
-"kivy>=2.3.0",
+    "kivy>=2.3.0",
+    "coloraide>=2.0"
 ]
 
 [build-system]

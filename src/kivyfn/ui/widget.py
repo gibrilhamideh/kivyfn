@@ -8,7 +8,7 @@ from kivy.properties import (
 )
 
 if TYPE_CHECKING:
-    from kivyfn.base.app import FnBaseApp
+    from kivyfn.app import FnApp
 
 
 class FnWidget:
@@ -25,14 +25,14 @@ class FnWidget:
     # External properties 
     # ============================== #
     @property
-    def app(self) -> FnBaseApp:
+    def app(self) -> FnApp:
         app = App.get_running_app()
         if app is None:
             raise RuntimeError(
                 f"{type(self).__name__} has no running application."
             )
 
-        return cast("FnBaseApp", app)
+        return cast("FnApp", app)
 
     # ============================== #
     # LifeCycle

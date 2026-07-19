@@ -9,49 +9,69 @@ from kivy.properties import StringProperty
 
 class FontManager(EventDispatcher):
     """
-    Runtime font registry for kivyfn.
+    Runtime font registry for KivyFN.
 
     Responsibilities:
-    - Auto-load application fonts
-    - Register runtime fonts
-    - Expose reactive current font
-    - Provide font lookup/introspection
+    - Auto-load application fonts when configured
+    - Register framework and application font aliases
+    - Expose the reactive current font
+    - Provide font lookup and introspection
 
-    Note:
-    The global default Kivy font is configured by FnConfig.
+    The global Kivy default font is configured separately
+    through FnFontConfig.
     """
 
-    current: str = StringProperty(None)
+    current: str = StringProperty("NotoSans")
 
     def __init__(
         self,
-        fonts_dir: Path,
-        default_font: str,
+        fonts_dir: Path | None = None,
+        default_font: str = "NotoSans",
     ) -> None:
         super().__init__()
 
-        self._loaded = False
+        self._default_font = default_font
         self._registered: set[str] = set()
-        self.load(fonts_dir, default_font)
-
-
-    # =====================================================
-    # Public API
-    # =====================================================
-
-    def load(self, fonts_dir: Path, default_font: str) -> None:
-        """
-        Register all .ttf fonts from a directory.
-
-        Safe to call multiple times.
-        """
-        if self._loaded:
-            return
-
-        self._load_fonts(fonts_dir)
-        self._loaded = True
+        self._loaded_dirs: set[Path] = set()
 
         self.current = default_font
+
+        if fonts_dir is not None:
+            self.load(fonts_dir)
+
+    # =================================== #
+    # Loading
+    # =================================== #
+
+    def load(
+        self,
+        fonts_dir: Path,
+    ) -> None:
+        """
+        Register all TTF fonts from a directory.
+
+        Each file is registered using its filename stem:
+
+            Inter-Regular.ttf -> "Inter-Regular"
+
+        Each directory is loaded only once.
+        """
+        if fonts_dir in self._loaded_dirs:
+            return
+
+        if fonts_dir.exists() and not fonts_dir.is_dir():
+            raise NotADirectoryError(
+                f"Font path is not a directory: {fonts_dir}"
+            )
+
+        if fonts_dir.is_dir():
+            self._load_fonts(fonts_dir)
+
+        self._loaded_dirs.add(fonts_dir)
+
+    # =================================== #
+    # Registration
+    # =================================== #
 
     def register(
         self,
@@ -63,10 +83,11 @@ class FontManager(EventDispatcher):
     ) -> None:
         """
         Register a font alias with Kivy.
-
-        Example:
-            Label(font_name="MyFont")
         """
+        if not isinstance(name, str) or not name:
+            raise ValueError(
+                "Font name must be a non-empty string"
+            )
 
         if name in self._registered:
             return
@@ -93,60 +114,67 @@ class FontManager(EventDispatcher):
 
         self._registered.add(name)
 
-        if self.current is None:
-            self.current = name
+    # =================================== #
+    # Current Font
+    # =================================== #
 
-    def set(self, name: str) -> None:
+    def set(
+        self,
+        name: str,
+    ) -> None:
         """
         Set the active runtime font alias.
         """
-
         if not self.has(name):
             raise ValueError(
-                f"Font '{name}' is not registered. "
-                f"Available: {self.list()}"
+                f"Font {name!r} is not registered. "
+                f"Available fonts: {self.list()}"
             )
 
         self.current = name
 
-    def has(self, name: str) -> bool:
-        """
-        Check if a font alias exists.
-        """
-        return name in self._registered
+    # =================================== #
+    # Queries
+    # =================================== #
 
-    def list(self) -> list[str]:
-        """
-        Return sorted registered font aliases.
-        """
-        return sorted(self._registered)
+    def has(
+        self,
+        name: str,
+    ) -> bool:
+        return (
+            name == self._default_font
+            or name in self._registered
+        )
 
-    # =====================================================
+    def list(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                {
+                    self._default_font,
+                    *self._registered,
+                }
+            )
+        )
+
+    # =================================== #
     # Internal
-    # =====================================================
+    # =================================== #
 
-    def _load_fonts(self, fonts_dir: Path) -> None:
-        """
-        Auto-register all .ttf fonts in a directory.
-
-        Each file becomes:
-            FontName.ttf -> "FontName"
-        """
-
-        if not fonts_dir.exists():
-            return
-
-        for font_file in fonts_dir.glob("*.ttf"):
+    def _load_fonts(
+        self,
+        fonts_dir: Path,
+    ) -> None:
+        for font_file in sorted(
+            fonts_dir.glob("*.ttf")
+        ):
             self.register(
                 name=font_file.stem,
                 fn_regular=font_file,
             )
 
-        
-
-    # =====================================================
+    # =================================== #
     # Debug
-    # =====================================================
+    # =================================== #
 
     def __repr__(self) -> str:
         fonts = ", ".join(self.list())

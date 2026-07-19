@@ -19,6 +19,7 @@ def register():
         #: import Animation kivy.animation.Animation
         #: import RelativeLayout kivy.uix.relativelayout.RelativeLayout
         #: import Factory kivy.factory.Factory
+        #: import I18nRef kivyfn.i18n.ref.I18nRef
 
     """
     )

@@ -1,4 +1,4 @@
-# kivyfn/i18n/manger.py
+# kivyfn/i18n/manager.py
 from __future__ import annotations
 
 from json import JSONDecodeError, load as json_load
@@ -16,21 +16,33 @@ class I18n(EventDispatcher):
 
     def __init__(
         self,
-        locales_dir: Path,
+        locales_dir: Path | None = None,
         lang: str = "en",
     ) -> None:
         super().__init__()
 
         self.locales_dir = locales_dir
         self._translations: dict[str, Any] = {}
+        self._loaded = False
+        self.lang = lang
 
-        self.load(lang)
+        if locales_dir is not None:
+            self.load(lang)
+
+    @property
+    def loaded(self) -> bool:
+        return self._loaded
 
     def __call__(
         self,
         key: str,
         **params: Any,
     ) -> str:
+        if not self._loaded:
+            raise RuntimeError(
+                "I18n is not configured"
+            )
+
         template = self._resolve(key)
 
         if template is None:
@@ -53,7 +65,15 @@ class I18n(EventDispatcher):
         self,
         lang: str,
     ) -> None:
-        file_path = self.locales_dir / f"{lang}.json"
+        locales_dir = self.locales_dir
+
+        if locales_dir is None:
+            raise RuntimeError(
+                "Cannot load translations because "
+                "no locales directory was provided"
+            )
+
+        file_path = locales_dir / f"{lang}.json"
 
         if not file_path.exists():
             raise FileNotFoundError(
@@ -61,12 +81,15 @@ class I18n(EventDispatcher):
             )
 
         try:
-            with open(file_path, "r", encoding="utf-8") as file:
+            with file_path.open(
+                "r",
+                encoding="utf-8",
+            ) as file:
                 translations = json_load(file)
-        except JSONDecodeError as exc:
+        except JSONDecodeError as error:
             raise ValueError(
                 f"Invalid JSON translation file: {file_path}"
-            ) from exc
+            ) from error
 
         if not isinstance(translations, dict):
             raise ValueError(
@@ -74,6 +97,7 @@ class I18n(EventDispatcher):
             )
 
         self._translations = translations
+        self._loaded = True
         self.lang = lang
 
     def _resolve(

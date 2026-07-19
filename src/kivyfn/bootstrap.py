@@ -1,18 +1,19 @@
 # kivyfn/bootstrap.py
 from __future__ import annotations
-from kivyfn.runtime.context import FnBootstrapContext
+
 
 _bootstrapped = False
 
 
-def bootstrap(ctx: FnBootstrapContext) -> None:
+def bootstrap() -> None:
     global _bootstrapped
 
-    if _bootstrapped:
-        return
+    if not _bootstrapped:
+        from kivyfn.factory import register
 
-    _bootstrapped = True
+        register()
+        _bootstrapped = True
 
-    # Register core widgets
-    from .factory import register
-    register()
+    from kivyfn.ui.bootstrap import bootstrap as bootstrap_ui
+
+    bootstrap_ui()

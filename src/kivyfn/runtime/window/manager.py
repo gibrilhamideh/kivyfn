@@ -1,73 +1,160 @@
+# kivyfn/runtime/window/manager.py
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, Generic, TypeVar
+from threading import RLock
 
-from kivyfn.config import FnConfig
-from kivyfn.runtime.process import FnProcess, FnProcessManager
-from kivyfn.runtime.transport.server import FnServerBus
+from kivyfn.runtime.process import FnProcessManager
+from kivyfn.runtime.window.entry import window_entry
+from kivyfn.runtime.window.types import (
+    WindowArgs,
+    WindowFactory,
+    WindowKwargs,
+)
+from kivyfn.runtime.window.window import FnWindow
 
 
-WindowName = TypeVar("WindowName", bound=str)
-
-
-class FnWindowManager(Generic[WindowName]):
-    def __init__(
-        self,
-        processes: FnProcessManager[WindowName],
-        bus: FnServerBus,
-        config: FnConfig,
-    ) -> None:
+class FnWindowManager:
+    def __init__(self, processes: FnProcessManager) -> None:
         self._processes = processes
-        self._bus = bus
-        self._config = config
+        self._windows: dict[str, FnWindow] = {}
+        self._lock = RLock()
 
-        self._processes.bind_cleanup(
-            lambda name: self._bus.remove_connection(str(name))
-        )
+    @property
+    def registered(self) -> tuple[str, ...]:
+        with self._lock:
+            return tuple(self._windows)
 
-        self._bus.subscribe(
-            "fn.window.close.requested",
-            self._on_close_requested,
-        )
+    @property
+    def opened(self) -> tuple[str, ...]:
+        with self._lock:
+            return tuple(
+                name
+                for name, window in self._windows.items()
+                if window.running
+            )
+
+    def __contains__(self, name: str) -> bool:
+        with self._lock:
+            return name in self._windows
 
     def register(
         self,
-        name: WindowName,
-        target: Callable[..., None],
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        self._processes.register(name, target, *args, **kwargs)
+        name: str,
+        factory: WindowFactory,
+        *,
+        async_mode: bool = False,
+    ) -> FnWindow:
+        if not isinstance(name, str) or not name:
+            raise ValueError(
+                "Window name must be a non-empty string"
+            )
 
-    def spawn(self, name: WindowName) -> FnProcess:
-        connection = self._bus.create_connection(str(name))
+        with self._lock:
+            if name in self._windows:
+                raise ValueError(
+                    f"Window {name!r} is already registered"
+                )
 
-        return self._processes.spawn(
-            name,
-            config=self._config,
-            connection=connection,
+            window = FnWindow(
+                name=name,
+                factory=factory,
+                async_mode=async_mode,
+            )
+
+            process = self._processes.register(
+                name=self._process_name(name),
+                target=window_entry,
+            )
+
+            window._attach(process)
+            self._windows[name] = window
+            return window
+
+    def unregister(self, name: str) -> None:
+        window = self.get(name)
+
+        if window.running:
+            raise RuntimeError(
+                f"Cannot unregister open window {name!r}"
+            )
+
+        self._processes.unregister(
+            self._process_name(name)
         )
 
-    def close(self, name: WindowName) -> None:
-        self._processes.kill(name)
+        with self._lock:
+            self._windows.pop(name, None)
 
-    def close_all(self) -> None:
-        self._processes.kill_all()
+    def get(self, name: str) -> FnWindow:
+        with self._lock:
+            try:
+                return self._windows[name]
+            except KeyError:
+                raise KeyError(
+                    f"Window {name!r} is not registered"
+                ) from None
 
-    def running(self, name: WindowName) -> bool:
-        return self._processes.running(name)
-
-    def registered(self, name: WindowName) -> bool:
-        return self._processes.registered(name)
-
-    def _on_close_requested(
+    def open(
         self,
-        payload: dict[str, Any],
+        name: str,
+        args: WindowArgs = (),
+        kwargs: WindowKwargs | None = None,
+        *,
+        wait: bool = False,
+        timeout: float | None = None,
+    ) -> FnWindow:
+        window = self.get(name)
+
+        if window.running:
+            raise RuntimeError(
+                f"Window {name!r} is already open"
+            )
+
+        self._processes.start(
+            self._process_name(name),
+            args=(
+                window.factory,
+                args,
+                {} if kwargs is None else dict(kwargs),
+                window.async_mode,
+            ),
+            wait=wait,
+            timeout=timeout,
+        )
+
+        return window
+
+    def close(
+        self,
+        name: str,
+        *,
+        timeout: float | None = 5.0,
+        kill_timeout: float | None = 1.0,
     ) -> None:
-        name = payload.get("name")
+        self.get(name)
 
-        if name is None:
-            return
+        self._processes.stop(
+            self._process_name(name),
+            timeout=timeout,
+            kill_timeout=kill_timeout,
+        )
 
-        self.close(name)
+    def close_all(
+        self,
+        *,
+        timeout: float | None = 5.0,
+        kill_timeout: float | None = 1.0,
+    ) -> None:
+        with self._lock:
+            names = tuple(self._windows)
+
+        for name in names:
+            self.close(
+                name,
+                timeout=timeout,
+                kill_timeout=kill_timeout,
+            )
+
+    @staticmethod
+    def _process_name(name: str) -> str:
+        return f"window:{name}"

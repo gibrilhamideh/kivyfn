@@ -15,9 +15,6 @@ from kivy.properties import (
 )
 
 from kivyfn.app import FnApp
-from kivyfn.fonts import FontManager
-from kivyfn.i18n import I18n
-
 from kivyfn.ui.behaviors.layouts.adaptive_size import FnTextureAdaptiveSizeBehavior
 
 
@@ -128,9 +125,8 @@ class FnFontTextBehavior:
 
         self.font_name = fonts.current
 
-    def _get_font_manager(self) -> FontManager:
-        app = cast(FnApp, FnApp.get_running_app())
-        return app.fn.fonts
+    def _get_font_manager(self):
+        return FnApp.fonts
 
     def on_attach(self) -> None:
         self._bind_font()
@@ -200,12 +196,8 @@ class FnI18nTextBehavior:
             **(self.i18n_params or {}),
         )
 
-    def _get_i18n(self) -> I18n:
-        app = cast(
-            FnApp,
-            FnApp.get_running_app(),
-        )
-        return app.fn.i18n
+    def _get_i18n(self):
+        return FnApp.i18n
 
     def on_attach(self) -> None:
         self._bind_i18n()
