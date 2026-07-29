@@ -35,6 +35,7 @@ class FnKeyboard(FnWidget, Widget):
         ObjectProperty(
             None,
             allownone=True,
+            rebind=True,
         ),
     )
     """
