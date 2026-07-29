@@ -19,7 +19,10 @@ package-dir = {"" = "src"}
 where = ["src"]
 namespaces = true
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "kivy-stubs>=0.1.0"
+    "kivy-stubs"
 ]
+
+[tool.uv.sources]
+kivy-stubs = { path = "../kivy-stubs", editable = true }

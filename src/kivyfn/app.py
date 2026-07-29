@@ -27,6 +27,7 @@ from kivyfn.runtime.services import Service
 from kivyfn.runtime.tasks import FnTasks
 from kivyfn.runtime.window import FnWindowManager
 from kivyfn.ui.feedback.snackbar import FnSnackbarManager
+from kivyfn.ui.keyboard import FnKeyboard
 from kivyfn.ui.theme import Theme
 
 
@@ -61,6 +62,14 @@ class FnApp(App):
 
     __runtime__: ClassVar[FnRuntime] = "main"
     __config__: ClassVar[FnConfig | None] = None
+    keyboard_cls: ClassVar[type[FnKeyboard] | None] = None
+    """
+    Application virtual keyboard class.
+
+    When set, Kivy uses this class whenever a focusable widget requests a
+    virtual keyboard. The class must implement the :class:`FnKeyboard`
+    interface. When left as ``None``, Kivy uses its default virtual keyboard.
+    """
 
     tasks = Service[FnTasks]("_tasks")
     theme = Service[Theme]("_theme")
@@ -81,8 +90,6 @@ class FnApp(App):
         self,
         **kwargs: Any,
     ) -> None:
-        # These must exist before App.__init__() in case framework code
-        # accesses a service during Kivy initialization.
         self._tasks: FnTasks | None = None
         self._theme: Theme | None = None
         self._i18n: I18n | None = None
@@ -225,8 +232,28 @@ class FnApp(App):
 
     def _run_bootstrap(self) -> None:
         bootstrap()
+        self._install_keyboard()
         self._load_framework_modules()
         self.on_bootstrap()
+
+    def _install_keyboard(self) -> None:
+        """
+        Register the application virtual keyboard with Kivy.
+
+        Keyboard registration is main-runtime-only because importing the Kivy
+        window provider can create a graphical window. Registration happens
+        before the root is built so the keyboard is available to the first
+        focusable widget that requests it.
+        """
+        keyboard_cls = self.keyboard_cls
+
+        if keyboard_cls is None:
+            return
+
+        from kivy.core.window import Window
+        Window.set_vkeyboard_class(
+            keyboard_cls,
+        )
 
     def _load_framework_modules(self) -> None:
         self._try_bootstrap_module(
@@ -480,4 +507,3 @@ class FnApp(App):
             logger.exception(
                 "Process manager shutdown failed"
             )
-
