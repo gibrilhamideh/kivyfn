@@ -248,7 +248,7 @@ class FnProcessManager:
         kill_timeout: float | None = 1.0,
     ) -> None:
         with self._lock:
-            names = tuple(self._processes)
+            names = tuple(reversed(self._processes))
 
         for name in names:
             self.stop(
@@ -273,20 +273,18 @@ class FnProcessManager:
         if self._listener_thread is not None:
             self._listener_thread.join(timeout=1.0)
 
-        if self._status_queue is not None:
-            close = getattr(
-                self._status_queue,
-                "close",
-                None,
-            )
-
-            if callable(close):
-                close()
-
         self._listener_thread = None
+
+        status_queue = self._status_queue
         self._status_queue = None
 
+        if status_queue is not None:
+            status_queue.close()
+            status_queue.cancel_join_thread()
+
         self._log_listener.stop()
+        self._log_queue.close()
+        self._log_queue.cancel_join_thread()
 
     def _ensure_listener(self) -> None:
         if (

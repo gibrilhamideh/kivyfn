@@ -1,6 +1,9 @@
 # kivyfn/runtime/process/entry.py
 from __future__ import annotations
 
+import asyncio
+import signal
+
 from kivyfn.logging import get_logger
 from kivyfn.logging.multiprocessing import configure_process_logging
 from kivyfn.runtime.process.context import FnProcessContext
@@ -26,6 +29,7 @@ def process_entry(
     stop_event: ProcessStopEvent,
     log_queue: ProcessLogQueue,
 ) -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     configure_process_logging(log_queue)
 
     context = FnProcessContext(
@@ -38,15 +42,13 @@ def process_entry(
 
     try:
         target(context)
+    except asyncio.CancelledError:
+        return
     except BaseException as error:
         try:
             context.failed(error)
-        except RuntimeError:
-            pass
+        except Exception:
+            logger.exception("Failed to report process %r error", name)
 
-        logger.exception(
-            "Process %r failed",
-            name,
-        )
-
+        logger.exception("Process %r failed", name)
         raise
