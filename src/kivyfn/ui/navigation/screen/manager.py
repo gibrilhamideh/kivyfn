@@ -46,7 +46,7 @@ class FnScreenManager(FnWidget, ScreenManager):
     loaded: bool = BooleanProperty(False)
 
     _startup_index = NumericProperty(0)
-    _startup_target: FnScreen | None = ObjectProperty()
+    _startup_target: FnScreen | None = ObjectProperty(None, allownone=True)
     _startup_pending: str = StringProperty()
     _startup_screens: list[FnScreen] = ListProperty()
     _startup_total: int = NumericProperty()

@@ -222,4 +222,4 @@ class FnWidget:
     #         if hasattr(child, "_dispatch_inherited_fg_dirty"):
     #             child._dispatch_inherited_fg_dirty()
 
-    # BUG: bug with display property with scrollview children but be solved.
+    # BUG: bug with display property with scrollview children must be solved.

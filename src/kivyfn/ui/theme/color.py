@@ -46,10 +46,10 @@ class ThemeColor(EventDispatcher):
     onSecondary = ColorProperty([0.05, 0.07, 0.12, 1])
 
     surface = ColorProperty([0.09, 0.11, 0.18, 1])      # #161b2d
-    onSurface = ColorProperty([0.75, 0.80, 0.93, 1])    # soft text
+    onSurface = ColorProperty([0.90, 0.93, 1.00, 1])    # soft text
 
     background = ColorProperty([0.04, 0.06, 0.12, 1])   # #0b1020
-    onBackground = ColorProperty([0.75, 0.80, 0.93, 1])
+    onBackground = ColorProperty([0.90, 0.93, 1.00, 1])
 
     error = ColorProperty([1.00, 0.46, 0.56, 1])        # red
     onError = ColorProperty([0.05, 0.07, 0.12, 1])
@@ -72,7 +72,7 @@ class ThemeColor(EventDispatcher):
         key = DERIVED_TO_PRIME_ROLE[role]
         return getattr(self, key)
 
-    def get_derived_role(self, role: ThemePrimeRole) -> ThemeDerivedRole:
+    def get_derived_role(self, role: ThemePrimeRole) -> list[float]:
         key = PRIME_TO_DERIVED_ROLE[role]
         return getattr(self, key)
 
