@@ -4,6 +4,7 @@ from kivyfn.config.graphics import FnGraphicsConfig
 from kivyfn.config.keyboard import FnKeyboardConfig
 from kivyfn.config.logging import FnLoggingConfig
 from kivyfn.config.widgets import FnWidgetsConfig
+from kivyfn.config.environment import FnEnvironmentConfig
 from kivyfn.config.input import (
     FnInputConfig,
     FnInputDeviceConfig,
