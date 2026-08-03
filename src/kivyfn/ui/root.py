@@ -43,4 +43,3 @@ class FnRoot(FnBackgroundBehavior, FnWidget, FloatLayout):
     def clear_modals(self):
         return self.modal_layer.clear_widgets()
 
-

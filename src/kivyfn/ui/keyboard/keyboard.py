@@ -9,6 +9,7 @@ from kivy.properties import (
     BooleanProperty,
     ObjectProperty,
     StringProperty,
+    NumericProperty,
 )
 
 from kivyfn.ui.widget import FnWidget
@@ -64,6 +65,14 @@ class FnKeyboard(FnWidget, Widget):
 
     Resolution first uses ``target.keyboard_type`` and then falls back to
     Kivy's standard ``target.input_type``.
+    """
+
+    scale = NumericProperty(1.0)
+    """
+    Virtual keyboard scale required by Kivy's window keyboard interface.
+
+    Kivy multiplies the keyboard height by this value when calculating the
+    occupied window area.
     """
 
     __events__ = (

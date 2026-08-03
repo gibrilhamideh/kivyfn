@@ -123,7 +123,6 @@ class FnInputConfig:
     """
 
     def apply(self) -> None:
-
         from kivy.config import Config
         Config.set("input", "mouse", self.mouse.to_kivy())
 

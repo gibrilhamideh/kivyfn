@@ -1,0 +1,411 @@
+
+from __future__ import annotations
+
+import importlib.util
+import inspect
+import sys
+
+from dataclasses import dataclass
+from pathlib import Path
+from types import ModuleType
+
+from kivy.uix.widget import Widget
+
+
+# =========================================== #
+# Configuration
+# =========================================== #
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+SOURCE_ROOT = PROJECT_ROOT.parent
+
+PACKAGE_ROOT = PROJECT_ROOT
+
+OUTPUT_FILE = (
+    PACKAGE_ROOT
+    / "factory.py"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryEntry:
+    name: str
+    module: str
+
+
+def main() -> None:
+    if not PACKAGE_ROOT.is_dir():
+        raise NotADirectoryError(
+            f"Package directory not found: "
+            f"{PACKAGE_ROOT}"
+        )
+
+    _add_source_root()
+
+    entries = discover_widgets(
+        PACKAGE_ROOT,
+    )
+
+    validate_entries(
+        entries,
+    )
+
+    content = render_factory(
+        entries,
+    )
+
+    changed = write_factory(
+        content,
+    )
+
+    status = (
+        "Generated"
+        if changed
+        else "Already up to date"
+    )
+
+    print(
+        f"{status}: {OUTPUT_FILE}"
+    )
+
+    print(
+        f"Registered widgets: {len(entries)}"
+    )
+
+
+def _add_source_root() -> None:
+    source = str(SOURCE_ROOT)
+
+    if source not in sys.path:
+        sys.path.insert(
+            0,
+            source,
+        )
+
+
+def discover_widgets(
+    root: Path,
+) -> list[FactoryEntry]:
+    entries: list[FactoryEntry] = []
+
+    for path in sorted(
+        root.rglob("*.py"),
+    ):
+        if _should_skip(path):
+            continue
+
+        module = _load_module(
+            root=root,
+            path=path,
+        )
+
+        entries.extend(
+            _get_widget_entries(
+                module,
+            )
+        )
+
+    return sorted(
+        entries,
+        key=lambda entry: (
+            entry.module,
+            entry.name,
+        ),
+    )
+
+
+def _load_module(
+    *,
+    root: Path,
+    path: Path,
+) -> ModuleType:
+    package_name = root.name
+    relative = path.relative_to(root)
+
+    if path.name == "__init__.py":
+        parts = relative.parent.parts
+    else:
+        parts = relative.with_suffix("").parts
+
+    module_name = ".".join(
+        (
+            package_name,
+            *parts,
+        )
+    )
+
+    existing = sys.modules.get(
+        module_name,
+    )
+
+    if existing is not None:
+        return existing
+
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        path,
+    )
+
+    if spec is None or spec.loader is None:
+        raise ImportError(
+            f"Could not create module spec for "
+            f"{path}"
+        )
+
+    module = importlib.util.module_from_spec(
+        spec,
+    )
+
+    sys.modules[module_name] = module
+
+    try:
+        spec.loader.exec_module(
+            module,
+        )
+    except Exception as error:
+        sys.modules.pop(
+            module_name,
+            None,
+        )
+
+        raise RuntimeError(
+            f"Failed to import module "
+            f"{module_name!r} from:\n"
+            f"{path}"
+        ) from error
+
+    return module
+
+
+def _get_widget_entries(
+    module: ModuleType,
+) -> list[FactoryEntry]:
+    entries: list[FactoryEntry] = []
+
+    for name, candidate in inspect.getmembers(
+        module,
+        inspect.isclass,
+    ):
+        if candidate.__module__ != module.__name__:
+            continue
+
+        if candidate is Widget:
+            continue
+
+        if not issubclass(
+            candidate,
+            Widget,
+        ):
+            continue
+
+        if inspect.isabstract(
+            candidate,
+        ):
+            continue
+
+        entries.append(
+            FactoryEntry(
+                name=name,
+                module=candidate.__module__,
+            )
+        )
+
+    return entries
+
+
+def validate_entries(
+    entries: list[FactoryEntry],
+) -> None:
+    by_name: dict[str, FactoryEntry] = {}
+
+    for entry in entries:
+        existing = by_name.get(
+            entry.name,
+        )
+
+        if existing is None:
+            by_name[entry.name] = entry
+            continue
+
+        if existing.module == entry.module:
+            continue
+
+        raise RuntimeError(
+            "Duplicate Factory widget name "
+            f"{entry.name!r}:\n"
+            f"  - {existing.module}\n"
+            f"  - {entry.module}"
+        )
+
+
+def render_factory(
+    entries: list[FactoryEntry],
+) -> str:
+    unique_entries = {
+        (
+            entry.name,
+            entry.module,
+        ): entry
+        for entry in entries
+    }
+
+    ordered = sorted(
+        unique_entries.values(),
+        key=lambda entry: (
+            _group_name(entry.module),
+            entry.module,
+            entry.name,
+        ),
+    )
+
+    lines = [
+        '"""',
+        "Register application widgets with Kivy Factory.",
+        "",
+        "Generated by generator.py.",
+        "Do not edit manually.",
+        '"""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from kivy.factory import Factory",
+        "",
+        "",
+        "def register() -> None:",
+        "    register_widget = Factory.register",
+        "",
+    ]
+
+    if not ordered:
+        lines.extend([
+            "    pass",
+            "",
+        ])
+
+        return "\n".join(lines)
+
+    current_group: str | None = None
+
+    for entry in ordered:
+        group = _group_name(
+            entry.module,
+        )
+
+        if group != current_group:
+            if current_group is not None:
+                lines.append("")
+
+            lines.append(
+                f"    # ---) {group}"
+            )
+
+            current_group = group
+
+        lines.append(
+            "    register_widget("
+        )
+
+        lines.append(
+            f'        "{entry.name}",'
+        )
+
+        lines.append(
+            f'        module="{entry.module}",'
+        )
+
+        lines.append(
+            "    )"
+        )
+
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def _group_name(
+    module: str,
+) -> str:
+    parts = module.split(".")
+
+    if len(parts) >= 3:
+        if parts[1] == "features":
+            return (
+                "Features / "
+                + _title(parts[2])
+            )
+
+        if parts[1] == "shared":
+            return (
+                "Shared / "
+                + _title(parts[2])
+            )
+
+        if parts[1] == "windows":
+            return (
+                "Windows / "
+                + _title(parts[2])
+            )
+
+    if len(parts) >= 2:
+        return _title(
+            parts[1],
+        )
+
+    return "Application"
+
+
+def _title(
+    value: str,
+) -> str:
+    return value.replace(
+        "_",
+        " ",
+    ).title()
+
+
+def write_factory(
+    content: str,
+) -> bool:
+    if OUTPUT_FILE.exists():
+        existing = OUTPUT_FILE.read_text(
+            encoding="utf-8",
+        )
+
+        if existing == content:
+            return False
+
+    OUTPUT_FILE.write_text(
+        content,
+        encoding="utf-8",
+    )
+
+    return True
+
+
+def _should_skip(
+    path: Path,
+) -> bool:
+    if path.resolve() == OUTPUT_FILE.resolve():
+        return True
+
+    ignored_directories = {
+        "__pycache__",
+        ".git",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv",
+        "venv",
+        "tests",
+    }
+
+    return any(
+        part in ignored_directories
+        or part.startswith(".")
+        for part in path.parts
+    )
+
+
+if __name__ == "__main__":
+    main()
