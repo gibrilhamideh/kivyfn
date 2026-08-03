@@ -37,6 +37,7 @@ def load_kv(file: str):
 def discover_widgets(
     root: Path,
 ) -> None:
+    # TODO: REMOVE THIS METHOD, CAUSED BUGS WITH IMPORTS
     root = root.resolve()
 
     if not root.is_dir():
