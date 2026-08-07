@@ -189,21 +189,21 @@ class FnWidget:
     # ============================== #
     # Touch Events
     # ============================== #
-    def on_touch_down(self, touch: Any) -> bool:
+    def on_touch_down(self, touch: Any) -> bool | None:
         if not self.display:
             return False
 
         return bool(super().on_touch_down(touch))  # pyright: ignore
 
 
-    def on_touch_move(self, touch: Any) -> bool:
+    def on_touch_move(self, touch: Any) -> bool | None:
         if not self.display:
             return False
 
         return bool(super().on_touch_move(touch))  # pyright: ignore
 
 
-    def on_touch_up(self, touch: Any) -> bool:
+    def on_touch_up(self, touch: Any) -> bool | None:
         if not self.display:
             return False
 

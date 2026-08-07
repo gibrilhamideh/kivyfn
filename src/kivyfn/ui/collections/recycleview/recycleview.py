@@ -6,7 +6,7 @@ from kivy.uix.recycleview import RecycleView
 from kivyfn.ui.widget import FnWidget
 
 
-class FnRecycleView(
+class FnRecycleView( # pyright: ignore
     RecycleView,
     FnWidget,
 ):

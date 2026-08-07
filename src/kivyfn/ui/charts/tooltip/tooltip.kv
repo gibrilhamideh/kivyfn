@@ -1,0 +1,18 @@
+<ChartTooltip>:
+    color: 0.90, 0.93, 1.00, 1
+    font_size: "12sp"
+    canvas.before:
+        Color:
+            rgba: root.background_color
+
+        RoundedRectangle:
+            pos: root.pos
+            size: root.size
+            radius: [6]
+
+        Color:
+            rgba: root.border_color
+
+        Line:
+            rounded_rectangle: root.x, root.y, root.width, root.height, 6
+            width: 1

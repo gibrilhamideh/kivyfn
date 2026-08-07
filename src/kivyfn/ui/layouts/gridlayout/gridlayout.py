@@ -93,7 +93,7 @@ class FnGridLayout(
 
     def _on_child_display(
         self,
-        child: FnWidget,
+        widget: FnWidget,
         display: bool,
     ) -> None:
         max_widgets = self.get_max_widgets()

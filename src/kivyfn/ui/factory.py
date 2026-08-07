@@ -19,11 +19,6 @@ def register():
     register("FnScreen", module="kivyfn.ui.navigation.screens")
     register("FnSplashScreen", module="kivyfn.ui.navigation.screens")
 
-    register("FnTabs", module="kivyfn.ui.navigation.tabs")
-    register("FnTabItem", module="kivyfn.ui.navigation.tabs")
-    register("FnTabBody", module="kivyfn.ui.navigation.tabs")
-    register("FnTabToolbar", module="kivyfn.ui.navigation.tabs")
-
     # ---) Primitive Layout
     register("FnBoxLayout", module="kivyfn.ui.layouts.boxlayout")
     register("FnGridLayout", module="kivyfn.ui.layouts.gridlayout")
@@ -37,7 +32,6 @@ def register():
     register("FnGridLayout", module="kivyfn.ui.layouts.gridlayout")
     register("FnRelativeLayout", module="kivyfn.ui.layouts.relativelayout")
     register("FnScrollView", module="kivyfn.ui.layouts.scrollview")
-    register("FnScaffold", module="kivyfn.ui.layouts.scaffold")
     register("FnBlurLayout", module="kivyfn.ui.layouts.blurlayout")
 
     # ---) Recycle View
