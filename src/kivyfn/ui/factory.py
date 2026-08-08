@@ -45,6 +45,10 @@ def register():
     register("FnNumericField", module="kivyfn.ui.fields.numeric")
 
 
+    # ---) Images
+    register("FnImage", module="kivyfn.ui.image")
+
+
     # ========================================= #
     # Kivy Lang files 
     # ========================================= #
