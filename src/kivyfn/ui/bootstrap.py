@@ -27,10 +27,26 @@ def _load_fonts() -> None:
     fonts = FnApp.fonts
 
     fonts.register(
-        name="FnIcons",
+        name="NotoSans",
         fn_regular=(
             UI_FONT_PATH
-            / "Material-Design-Icons.ttf"
+            / "text"
+            / "NotoSans-Regular.ttf"
+        ),
+        fn_italic=(
+            UI_FONT_PATH
+            / "text"
+            / "NotoSans-Italic.ttf"
+        ),
+        fn_bold=(
+            UI_FONT_PATH
+            / "text"
+            / "NotoSans-Bold.ttf"
+        ),
+        fn_bolditalic=(
+            UI_FONT_PATH
+            / "text"
+            / "NotoSans-BoldItalic.ttf"
         ),
     )
 
@@ -38,11 +54,22 @@ def _load_fonts() -> None:
         name="NotoSansMono",
         fn_regular=(
             UI_FONT_PATH
+            / "mono"
             / "NotoSansMono-Regular.ttf"
         ),
         fn_bold=(
             UI_FONT_PATH
+            / "mono"
             / "NotoSansMono-Bold.ttf"
+        ),
+    )
+
+    fonts.register(
+        name="FnIcons",
+        fn_regular=(
+            UI_FONT_PATH
+            / "icons"
+            / "Material-Design-Icons.ttf"
         ),
     )
 

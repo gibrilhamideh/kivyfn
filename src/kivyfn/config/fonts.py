@@ -15,8 +15,10 @@ class FnFontConfig:
 
     regular_path: Path = package_path(
         "kivyfn",
+        "ui",
         "resources",
         "fonts",
+        "text",
         "NotoSans-Regular.ttf",
     )
     """
@@ -25,8 +27,10 @@ class FnFontConfig:
 
     italic_path: Path = package_path(
         "kivyfn",
+        "ui",
         "resources",
         "fonts",
+        "text",
         "NotoSans-Italic.ttf",
     )
     """
@@ -35,8 +39,10 @@ class FnFontConfig:
 
     bold_path: Path = package_path(
         "kivyfn",
+        "ui",
         "resources",
         "fonts",
+        "text",
         "NotoSans-Bold.ttf",
     )
     """
@@ -45,8 +51,10 @@ class FnFontConfig:
 
     bold_italic_path: Path = package_path(
         "kivyfn",
+        "ui",
         "resources",
         "fonts",
+        "text",
         "NotoSans-BoldItalic.ttf",
     )
     """

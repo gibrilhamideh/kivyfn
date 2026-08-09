@@ -1,16 +1,16 @@
 # kivyfn/logging/setup.py
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
+import logging
+import sys
 
 from pathlib import Path
 from types import TracebackType
+from typing import TYPE_CHECKING, TextIO
 
 from kivyfn.logging.formatter import FnFormatter
 from kivyfn.logging.levels import install_trace_level, resolve_level
 
-import logging
-import sys
 
 if TYPE_CHECKING:
     from kivyfn.config.logging import FnLoggingConfig
@@ -20,7 +20,7 @@ class StderrCapture:
     def __init__(
         self,
         logger: logging.Logger,
-        original,
+        original: TextIO,
     ) -> None:
         self.logger = logger
         self.original = original
@@ -61,10 +61,16 @@ def configure_logging(config: FnLoggingConfig) -> None:
         return
 
     if config.console.enabled:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(resolve_level(config.console.level))
+        console_handler = logging.StreamHandler(
+            stream=sys.__stderr__,
+        )
+        console_handler.setLevel(
+            resolve_level(config.console.level)
+        )
         console_handler.setFormatter(
-            FnFormatter(use_colors=config.console.use_colors)
+            FnFormatter(
+                use_colors=config.console.use_colors,
+            )
         )
         root.addHandler(console_handler)
 
@@ -73,16 +79,30 @@ def configure_logging(config: FnLoggingConfig) -> None:
             path = Path(config.file.filename)
         else:
             directory = Path(config.file.directory)
-            directory.mkdir(parents=True, exist_ok=True)
+            directory.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
             path = directory / config.file.filename
 
-        file_handler = logging.FileHandler(path, encoding="utf-8")
-        file_handler.setLevel(resolve_level(config.file.level))
-        file_handler.setFormatter(FnFormatter(use_colors=False))
+        file_handler = logging.FileHandler(
+            path,
+            encoding="utf-8",
+        )
+        file_handler.setLevel(
+            resolve_level(config.file.level)
+        )
+        file_handler.setFormatter(
+            FnFormatter(
+                use_colors=False,
+            )
+        )
         root.addHandler(file_handler)
 
     for name, level in config.resolved_loggers().items():
-        logging.getLogger(name).setLevel(resolve_level(level))
+        logging.getLogger(name).setLevel(
+            resolve_level(level)
+        )
 
     if config.install_exception_hook:
         install_exception_hook()
@@ -100,12 +120,20 @@ def install_exception_hook() -> None:
         exc_traceback: TracebackType | None,
     ) -> None:
         if issubclass(exc_type, KeyboardInterrupt):
-            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            sys.__excepthook__(
+                exc_type,
+                exc_value,
+                exc_traceback,
+            )
             return
 
         logger.critical(
             "Unhandled exception",
-            exc_info=(exc_type, exc_value, exc_traceback),
+            exc_info=(
+                exc_type,
+                exc_value,
+                exc_traceback,
+            ),
         )
 
     sys.excepthook = hook

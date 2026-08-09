@@ -269,12 +269,15 @@ class FnApp(App):
         module: str,
     ) -> None:
         try:
-            imported = importlib.import_module(
-                module,
-            )
+            imported = importlib.import_module(module)
 
         except ModuleNotFoundError as error:
-            if error.name == module:
+            missing = error.name
+
+            if missing is not None and (
+                missing == module
+                or module.startswith(f"{missing}.")
+            ):
                 return
 
             raise
@@ -291,9 +294,7 @@ class FnApp(App):
                 "define bootstrap()"
             )
 
-        if not callable(
-            module_bootstrap,
-        ):
+        if not callable(module_bootstrap):
             raise TypeError(
                 f"{module!r}.bootstrap must be callable"
             )

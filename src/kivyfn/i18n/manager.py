@@ -8,7 +8,12 @@ from typing import Any
 from kivy.event import EventDispatcher
 from kivy.properties import StringProperty
 
+from kivyfn.logging import get_logger
+
 from .ref import I18nRef
+
+
+logger = get_logger(__name__)
 
 
 class I18n(EventDispatcher):
@@ -26,8 +31,13 @@ class I18n(EventDispatcher):
         self._loaded = False
         self.lang = lang
 
-        if locales_dir is not None:
-            self.load(lang)
+        if locales_dir is None:
+            logger.warning(
+                "I18n has no locales directory configured"
+            )
+            return
+
+        self.load(lang)
 
     @property
     def loaded(self) -> bool:
@@ -38,11 +48,6 @@ class I18n(EventDispatcher):
         key: str,
         **params: Any,
     ) -> str:
-        if not self._loaded:
-            raise RuntimeError(
-                "I18n is not configured"
-            )
-
         template = self._resolve(key)
 
         if template is None:
@@ -68,17 +73,25 @@ class I18n(EventDispatcher):
         locales_dir = self.locales_dir
 
         if locales_dir is None:
-            raise RuntimeError(
-                "Cannot load translations because "
-                "no locales directory was provided"
+            logger.warning(
+                "Cannot load language %r because no locales "
+                "directory is configured",
+                lang,
             )
+            return
 
         file_path = locales_dir / f"{lang}.json"
 
         if not file_path.exists():
-            raise FileNotFoundError(
-                f"Translation file not found: {file_path}"
+            logger.warning(
+                "Translation file not found: %s",
+                file_path,
             )
+
+            self._translations = {}
+            self._loaded = False
+            self.lang = lang
+            return
 
         try:
             with file_path.open(
