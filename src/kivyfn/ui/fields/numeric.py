@@ -50,6 +50,14 @@ class FnNumericField(FnBaseField):
 
         self.value = value
 
+    def on_max_decimals(
+        self,
+        *_: Any,
+    ) -> None:
+        self.text = self.value_to_text(
+            self.value,
+        )
+
     # ---------------------------------------------------------
     # Value conversion
     # ---------------------------------------------------------
@@ -95,20 +103,59 @@ class FnNumericField(FnBaseField):
         except (TypeError, ValueError):
             return None
 
-    def _format_value(self, value: Any) -> str:
-        value = self._coerce_value(value)
+    def _format_value(
+        self,
+        value: Any,
+    ) -> str:
+        value = self._coerce_value(
+            value,
+        )
 
         if value is None:
             return ""
 
         if self.number_type == "int":
-            text = str(int(value))
+            text = str(
+                int(value),
+            )
         else:
-            text = str(float(value))
+            number = float(
+                value,
+            )
+
+            if self.max_decimals is None:
+                text = str(
+                    number,
+                )
+            else:
+                decimals = max(
+                    0,
+                    int(
+                        self.max_decimals,
+                    ),
+                )
+
+                text = (
+                    f"{number:.{decimals}f}"
+                )
+
+                if "." in text:
+                    text = text.rstrip(
+                        "0",
+                    ).rstrip(
+                        ".",
+                    )
 
         if callable(self.formatter):
-            formatted = self.formatter(text, value)
-            if isinstance(formatted, str):
+            formatted = self.formatter(
+                text,
+                value,
+            )
+
+            if isinstance(
+                formatted,
+                str,
+            ):
                 return formatted
 
         return text
