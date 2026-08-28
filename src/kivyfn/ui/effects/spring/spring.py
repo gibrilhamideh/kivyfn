@@ -238,6 +238,15 @@ class FnSpringEffect(FnScaleBehavior):
 
         return super().on_release(touch)  # pyright: ignore
 
+    def on_long_press(self, touch):
+        if (
+            self.effect_trigger == "touch"
+            and self.spring_mode == "press_release"
+        ):
+            self.spring_out()
+
+        return super().on_long_press(touch)  # pyright: ignore
+
 
     def on_cancel(self, touch):
         if self.effect_trigger == "touch":
