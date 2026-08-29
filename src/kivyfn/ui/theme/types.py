@@ -31,6 +31,7 @@ ThemeUtilityRole: TypeAlias = Literal[
     "outline",
     "divider",
     "disabled",
+    "shadow",
 ]
 
 
@@ -64,6 +65,7 @@ THEME_UTILITY_ROLE = (
     "outline",
     "divider",
     "disabled",
+    "shadow"
 )
 
 THEME_ROLE = THEME_PRIME_ROLE + THEME_DERIVED_ROLE + THEME_UTILITY_ROLE
