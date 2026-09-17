@@ -1,0 +1,3 @@
+[globals]
+md_icons = "kivyfn.ui.constants.icons.md_icons"
+I18nRef = "kivyfn.i18n.ref.I18nRef"
