@@ -20,6 +20,7 @@ class ChartSelection:
     x: ChartValue
     pixel: tuple[float, float]
     points: tuple[SelectedPoint, ...]
+    anchor_series_id: str | None = None
 
     def get(self, series_id: str) -> SelectedPoint | None:
         for point in self.points:

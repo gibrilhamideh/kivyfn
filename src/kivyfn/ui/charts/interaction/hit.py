@@ -7,15 +7,13 @@ from ..data.validation import value_scalar
 
 
 def nearest_x(
-    points: tuple[ChartPoint, ...],
-    target: float,
+    points: tuple[ChartPoint, ...], target: float
 ) -> ChartPoint | None:
     """Return the point with the nearest scalar X value."""
     if not points:
         return None
 
-    scalars = [value_scalar(point.x) for point in points]
-    index = bisect_left(scalars, target)
+    index = bisect_left(points, target, key=_point_scalar)
 
     if index == 0:
         return points[0]
@@ -28,3 +26,17 @@ def nearest_x(
     before_distance = abs(value_scalar(before.x) - target)
     after_distance = abs(value_scalar(after.x) - target)
     return before if before_distance <= after_distance else after
+
+
+def exact_x(
+    points: tuple[ChartPoint, ...], target: float
+) -> ChartPoint | None:
+    """Resolve sample identity after a dataset revision or rolling trim."""
+    index = bisect_left(points, target, key=_point_scalar)
+    if index < len(points) and value_scalar(points[index].x) == target:
+        return points[index]
+    return None
+
+
+def _point_scalar(point: ChartPoint) -> float:
+    return value_scalar(point.x)

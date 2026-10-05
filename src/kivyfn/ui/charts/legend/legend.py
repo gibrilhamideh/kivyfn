@@ -69,7 +69,7 @@ class ChartLegend(FnWidget, Widget):
         if not self.collide_point(*touch.pos):
             return super().on_touch_down(touch)
 
-        local_x, local_y = self.to_local(*touch.pos)
+        local_x, local_y = self.to_local(*touch.pos, relative=True)
 
         for x, y, width, height, series_id in self._hit_regions:
             if x <= local_x <= x + width and y <= local_y <= y + height:

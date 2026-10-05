@@ -21,8 +21,7 @@ class ChartLayers:
 
     @staticmethod
     def clear(group: InstructionGroup) -> None:
-        for instruction in tuple(group.children):
-            group.remove(instruction)
+        group.clear()
 
     @classmethod
     def replace(
@@ -33,6 +32,7 @@ class ChartLayers:
         """Atomically replace one layer after a successful staged render."""
         cls.clear(target)
 
-        for instruction in tuple(staged.children):
-            staged.remove(instruction)
-            target.add(instruction)
+        # Keep Kivy's implicit BindTexture / VertexInstruction pairs intact.
+        # Removing individual children from a snapshot removes some implicit
+        # instructions twice. A nested group also keeps the commit bounded.
+        target.add(staged)

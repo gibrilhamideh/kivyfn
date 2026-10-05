@@ -9,7 +9,7 @@ from kivyfn.ui.widget import FnWidget
 from ..geometry import ChartBounds
 
 
-class ChartTooltip(FnWidget, Label): # pyright: ignore
+class ChartTooltip(FnWidget, Label):  # pyright: ignore
     """Default boundary-aware tooltip used by FnChart."""
 
     background_color = ColorProperty((0.09, 0.11, 0.18, 0.96))
@@ -22,21 +22,22 @@ class ChartTooltip(FnWidget, Label): # pyright: ignore
         self.halign = "left"
         self.valign = "middle"
         self.padding = 10, 6
+        self.markup = True
 
     def show(
-        self,
-        text: str,
-        *,
-        anchor: tuple[float, float],
-        bounds: ChartBounds,
+        self, text: str, *, anchor: tuple[float, float], bounds: ChartBounds
     ) -> None:
+        if bounds.width <= 0 or bounds.height <= 0:
+            self.dismiss()
+            return
+        self.text_size = None, None
         self.text = text
         self.texture_update()
-        padding_x, padding_y = self.padding
-        self.size = (
-            self.texture_size[0] + padding_x * 2,
-            self.texture_size[1] + padding_y * 2,
-        )
+        if self.texture_size[0] > bounds.width:
+            self.text_size = bounds.width, None
+            self.texture_update()
+        # Label's texture includes padding; Kivy 2.3 exposes four values.
+        self.size = self.texture_size
 
         x = anchor[0] + 12
         y = anchor[1] + 12

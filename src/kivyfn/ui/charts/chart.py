@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from datetime import datetime
 from math import hypot
 from typing import Any
 
@@ -13,6 +14,10 @@ from kivy.graphics import (
     InstructionGroup,
     Line,
     Rectangle,
+    StencilPop,
+    StencilPush,
+    StencilUnUse,
+    StencilUse,
 )
 from kivy.properties import (
     BooleanProperty,
@@ -22,6 +27,7 @@ from kivy.properties import (
     StringProperty,
     VariableListProperty,
 )
+from kivy.utils import escape_markup, get_hex_from_color
 
 from kivyfn.factory import load_kv
 from kivyfn.ui.layouts.relativelayout import FnRelativeLayout
@@ -29,7 +35,8 @@ from kivyfn.ui.layouts.relativelayout import FnRelativeLayout
 from .axis import ChartAxis, LinearAxis
 from .axis.range import resolve_domain
 from .axis.tick import locate_ticks
-from .data import NormalizedData
+from .data import ChartPoint, NormalizedData
+from .data.validation import value_scalar
 from .errors import (
     ChartAxisError,
     ChartConfigurationError,
@@ -44,15 +51,15 @@ from .interaction import (
     ChartSelection,
     SelectedPoint,
 )
-from .interaction.hit import nearest_x
+from .interaction.hit import exact_x, nearest_x
 from .legend import ChartLegend
 from .renderer import LineRenderer, RenderContext, SeriesRenderer
+from .renderer.clip import PlotClip
 from .renderer.layer import ChartLayers
-from .series import ChartSeries
+from .series import ChartSeries, LineSeries
 from .tooltip import ChartTooltip
 from .types import ChartValue, RenderQuality
 from .viewport import ChartViewport
-
 
 load_kv(__file__)
 
@@ -90,12 +97,7 @@ class FnChart(FnRelativeLayout):
     viewport = ObjectProperty(None, allownone=True)
     selection = ObjectProperty(None, allownone=True)
 
-    __events__ = (
-        "on_selection",
-        "on_viewport",
-        "on_chart_error",
-        "on_render",
-    )
+    __events__ = ("on_selection", "on_viewport", "on_chart_error", "on_render")
 
     def __init__(
         self,
@@ -109,9 +111,7 @@ class FnChart(FnRelativeLayout):
         self._axes: dict[str, ChartAxis] = {}
         self._series: list[ChartSeries] = []
         self._normalized: dict[str, NormalizedData] = {}
-        self._renderers: dict[str, SeriesRenderer] = {
-            "line": LineRenderer(),
-        }
+        self._renderers: dict[str, SeriesRenderer] = {"line": LineRenderer()}
         self._quality: RenderQuality = "final"
         self._update_depth = 0
         self._update_dirty = False
@@ -160,6 +160,7 @@ class FnChart(FnRelativeLayout):
         )
         for name in properties:
             self.fbind(name, self._on_visual_change)
+        self.fbind("interaction", self._on_interaction_change)
 
         self.request_render()
 
@@ -177,9 +178,7 @@ class FnChart(FnRelativeLayout):
 
     def add_axis(self, axis: ChartAxis) -> None:
         if not isinstance(axis, ChartAxis):
-            raise TypeError(
-                "FnChart.add_axis requires a ChartAxis instance"
-            )
+            raise TypeError("FnChart.add_axis requires a ChartAxis instance")
 
         if axis.id in self._axes:
             raise ChartAxisError(f"Axis {axis.id!r} already exists")
@@ -239,17 +238,14 @@ class FnChart(FnRelativeLayout):
             )
 
         if any(item.id == series.id for item in self._series):
-            raise ChartSeriesError(
-                f"Series {series.id!r} already exists"
-            )
+            raise ChartSeriesError(f"Series {series.id!r} already exists")
 
         self.get_axis(series.x_axis)
         self.get_axis(series.y_axis)
 
         if series.kind not in self._renderers:
             raise ChartSeriesError(
-                f"No renderer is registered for series kind "
-                f"{series.kind!r}"
+                f"No renderer is registered for series kind {series.kind!r}"
             )
 
         series.subscribe(self._on_series_change)
@@ -261,9 +257,7 @@ class FnChart(FnRelativeLayout):
             if item.id == series_id:
                 return item
 
-        raise ChartSeriesError(
-            f"Chart series {series_id!r} does not exist"
-        )
+        raise ChartSeriesError(f"Chart series {series_id!r} does not exist")
 
     def remove_series(self, series_id: str) -> ChartSeries:
         series = self.get_series(series_id)
@@ -271,7 +265,10 @@ class FnChart(FnRelativeLayout):
         self._series.remove(series)
         self._normalized.pop(series.id, None)
 
-        if self.selection is not None:
+        if (
+            self.selection is not None
+            and self.selection.anchor_series_id == series_id
+        ):
             self.clear_selection()
 
         self.request_render()
@@ -303,8 +300,7 @@ class FnChart(FnRelativeLayout):
         series.notify_changed()
 
     def color_for_series(
-        self,
-        series: ChartSeries,
+        self, series: ChartSeries
     ) -> tuple[float, float, float, float]:
         if series.color is not None:
             return series.color
@@ -352,7 +348,7 @@ class FnChart(FnRelativeLayout):
 
         if mode in {"x", "both"} and bounds.width > 0:
             for axis in self._horizontal_axes():
-                lower, upper = axis.scale.scalar_domain
+                lower, upper = self._axis_scalar_domain(axis)
                 shift = -delta_x / bounds.width * (upper - lower)
                 self.viewport.set_x(
                     axis.scale.from_scalar(lower + shift),
@@ -361,24 +357,15 @@ class FnChart(FnRelativeLayout):
 
         if mode in {"y", "both"} and bounds.height > 0:
             for axis in self._vertical_axes():
-                lower, upper = axis.scale.scalar_domain
+                lower, upper = self._axis_scalar_domain(axis)
                 shift = -delta_y / bounds.height * (upper - lower)
-                self.viewport.set_y(
-                    axis.id,
-                    lower + shift,
-                    upper + shift,
-                )
+                self.viewport.set_y(axis.id, lower + shift, upper + shift)
 
         self._quality = "interactive"
         self.dispatch("on_viewport", self.viewport)
         self.request_render()
 
-    def zoom_at(
-        self,
-        x: float,
-        y: float,
-        factor: float,
-    ) -> None:
+    def zoom_at(self, x: float, y: float, factor: float) -> None:
         if factor <= 0:
             return
 
@@ -390,12 +377,9 @@ class FnChart(FnRelativeLayout):
             ratio = (local_x - bounds.left) / bounds.width
 
             for axis in self._horizontal_axes():
-                lower, upper = axis.scale.scalar_domain
+                lower, upper = self._axis_scalar_domain(axis)
                 new_lower, new_upper = _zoom_domain(
-                    lower,
-                    upper,
-                    ratio,
-                    factor,
+                    lower, upper, ratio, factor
                 )
                 self.viewport.set_x(
                     axis.scale.from_scalar(new_lower),
@@ -406,12 +390,9 @@ class FnChart(FnRelativeLayout):
             ratio = (local_y - bounds.bottom) / bounds.height
 
             for axis in self._vertical_axes():
-                lower, upper = axis.scale.scalar_domain
+                lower, upper = self._axis_scalar_domain(axis)
                 new_lower, new_upper = _zoom_domain(
-                    lower,
-                    upper,
-                    ratio,
-                    factor,
+                    lower, upper, ratio, factor
                 )
                 self.viewport.set_y(axis.id, new_lower, new_upper)
 
@@ -423,6 +404,19 @@ class FnChart(FnRelativeLayout):
         self._quality = "final"
         self.request_render()
 
+    def _axis_scalar_domain(self, axis: ChartAxis) -> tuple[float, float]:
+        """Use pending viewport changes when gestures arrive in one frame."""
+        if axis.side in {"bottom", "top"} and self.viewport.has_x_range:
+            minimum, maximum = self.viewport.x_min, self.viewport.x_max
+            assert minimum is not None and maximum is not None
+            return (
+                axis.scale.to_scalar(minimum),
+                axis.scale.to_scalar(maximum),
+            )
+        if axis.id in self.viewport.y_ranges:
+            return self.viewport.y_ranges[axis.id]
+        return axis.scale.scalar_domain
+
     def is_plot_point(self, x: float, y: float) -> bool:
         local = self.to_local(x, y)
         return self.plot_bounds.contains(*local)
@@ -432,79 +426,154 @@ class FnChart(FnRelativeLayout):
             self.select_at(x, y)
 
     def select_at(self, x: float, y: float) -> ChartSelection | None:
+        """Inspect data near parent-space coordinates, optionally snapping."""
         if self.interaction.selection == "none":
             return None
 
+        if self._render_trigger.is_triggered and not self._rendering:
+            self.render_now()
         local_x, local_y = self.to_local(x, y)
         bounds = self.plot_bounds
-        if not bounds.contains(local_x, local_y):
+        if (
+            not bounds.width
+            or not bounds.height
+            or not bounds.contains(local_x, local_y)
+        ):
             self.clear_selection()
             return None
 
-        primary = self._primary_x_axis()
-        selection_x = primary.scale.invert(
-            local_x,
-            bounds.left,
-            bounds.width,
-        )
-        selected: list[SelectedPoint] = []
-
-        for series in self._series:
-            if not series.visible:
-                continue
-
-            normalized = series.normalize()
-            x_axis = self.get_axis(series.x_axis)
-            y_axis = self.get_axis(series.y_axis)
-            target = x_axis.scale.to_scalar(
-                x_axis.scale.invert(
-                    local_x,
-                    bounds.left,
-                    bounds.width,
-                )
+        anchor = self._pick_anchor((local_x, local_y))
+        if anchor is None:
+            self.clear_selection()
+            return None
+        selection_x = anchor.point.x
+        if not self.interaction.snap:
+            selection_x = self._primary_x_axis().scale.invert(
+                local_x, bounds.left, bounds.width
             )
-            point = nearest_x(normalized.points, target)
-            if point is None:
-                continue
-
-            pixel_x = x_axis.scale.transform(
-                point.x,
-                bounds.left,
-                bounds.width,
-            )
-            pixel_y = local_y
-            if point.y is not None:
-                pixel_y = y_axis.scale.transform(
-                    point.y,
-                    bounds.bottom,
-                    bounds.height,
-                )
-
-            selected.append(
-                SelectedPoint(
-                    series_id=series.id,
-                    point=point,
-                    pixel=(pixel_x, pixel_y),
-                    distance=hypot(
-                        pixel_x - local_x,
-                        pixel_y - local_y,
-                    ),
-                )
-            )
-
-        if self.interaction.selection == "nearest_point" and selected:
-            selected = [min(selected, key=lambda item: item.distance)]
-
-        selection = ChartSelection(
-            mode=self.interaction.selection,
-            x=selection_x,
-            pixel=(local_x, local_y),
-            points=tuple(selected),
-        )
+        selection = self._make_selection(anchor, selection_x, local_y)
         self.selection = selection
         self._draw_overlay()
         self.dispatch("on_selection", selection)
         return selection
+
+    def _pick_anchor(self, pixel: tuple[float, float]) -> SelectedPoint | None:
+        """Pick a visible real sample; XY mode checks every actual point."""
+        best = None
+        best_key = None
+        for series in self._series:
+            if not series.visible:
+                continue
+            for point in series.normalize().points:
+                if point.is_gap:
+                    continue
+                candidate = self._project_point(series, point, pixel)
+                if not self.plot_bounds.contains(*candidate.pixel):
+                    continue
+                key = (candidate.distance,)
+                if self.interaction.selection == "nearest_x":
+                    key = (
+                        abs(candidate.pixel[0] - pixel[0]),
+                        candidate.distance,
+                    )
+                if best_key is None or key < best_key:
+                    best, best_key = candidate, key
+        return best
+
+    def _project_point(
+        self,
+        series: ChartSeries,
+        point: ChartPoint,
+        origin: tuple[float, float],
+    ) -> SelectedPoint:
+        bounds = self.plot_bounds
+        x = self.get_axis(series.x_axis).scale.transform(
+            point.x, bounds.left, bounds.width
+        )
+        y = origin[1]
+        if point.y is not None:
+            y = self.get_axis(series.y_axis).scale.transform(
+                point.y, bounds.bottom, bounds.height
+            )
+        return SelectedPoint(
+            series.id, point, (x, y), hypot(x - origin[0], y - origin[1])
+        )
+
+    def _make_selection(
+        self, anchor: SelectedPoint, x: ChartValue, y: float
+    ) -> ChartSelection:
+        bounds = self.plot_bounds
+        pixel = anchor.pixel
+        if not self.interaction.snap:
+            pixel = (
+                self._primary_x_axis().scale.transform(
+                    x, bounds.left, bounds.width
+                ),
+                max(bounds.bottom, min(y, bounds.top)),
+            )
+
+        selected = [anchor]
+        if self.interaction.selection == "nearest_x":
+            selected = []
+            target = value_scalar(x)
+            for series in self._series:
+                if not series.visible:
+                    continue
+                if series.id == anchor.series_id:
+                    selected.append(anchor)
+                    continue
+                points = series.normalize().points
+                if not points or not (
+                    value_scalar(points[0].x)
+                    <= target
+                    <= value_scalar(points[-1].x)
+                ):
+                    continue
+                point = nearest_x(points, target)
+                if point is not None:
+                    selected.append(self._project_point(series, point, pixel))
+        return ChartSelection(
+            self.interaction.selection,
+            x,
+            pixel,
+            tuple(selected),
+            anchor_series_id=anchor.series_id,
+        )
+
+    def _refresh_selection(self) -> None:
+        """Retain the anchor by (series ID, X), never by shifting row index."""
+        previous = self.selection
+        if previous is None:
+            return
+        old_anchor = (
+            previous.get(previous.anchor_series_id)
+            if previous.anchor_series_id is not None
+            else None
+        )
+        series = next(
+            (
+                item
+                for item in self._series
+                if item.id == previous.anchor_series_id and item.visible
+            ),
+            None,
+        )
+        if series is None or old_anchor is None:
+            self.clear_selection()
+            return
+        point = exact_x(
+            series.normalize().points, value_scalar(old_anchor.point.x)
+        )
+        if point is None or point.is_gap:
+            self.clear_selection()
+            return
+        anchor = self._project_point(series, point, previous.pixel)
+        x = point.x if self.interaction.snap else previous.x
+        current = self._make_selection(anchor, x, previous.pixel[1])
+        self.selection = current
+        # Redrawing or moving a marker is not a change to selected values.
+        if _selection_values(current) != _selection_values(previous):
+            self.dispatch("on_selection", current)
 
     def clear_selection(self) -> None:
         if self.selection is None:
@@ -516,9 +585,15 @@ class FnChart(FnRelativeLayout):
         self.dispatch("on_selection", None)
 
     def on_touch_down(self, touch: Any) -> bool:
+        if not self.display or self.disabled:
+            return False
         if super().on_touch_down(touch):
             return True
 
+        if self.collide_point(*touch.pos) and not self.is_plot_point(
+            *touch.pos
+        ):
+            self.clear_selection()
         return self._interaction_controller.on_touch_down(touch)
 
     def on_touch_move(self, touch: Any) -> bool | None:
@@ -533,10 +608,12 @@ class FnChart(FnRelativeLayout):
 
         return super().on_touch_up(touch)
 
-    def on_selection(self, selection: ChartSelection | None) -> None:
+    def on_selection(self, *args: Any) -> None:
+        # Kivy also invokes this as an on_<property> callback with
+        # (instance, value); explicit event dispatch supplies just (value,).
         pass
 
-    def on_viewport(self, viewport: ChartViewport) -> None:
+    def on_viewport(self, *args: Any) -> None:
         pass
 
     def on_chart_error(self, error: ChartError) -> None:
@@ -545,14 +622,19 @@ class FnChart(FnRelativeLayout):
     def on_render(self) -> None:
         pass
 
+    def on_detach(self) -> None:
+        if hasattr(self, "_interaction_controller"):
+            self._interaction_controller.cancel()
+
+    def _on_interaction_change(self, *_: Any) -> None:
+        self._interaction_controller.cancel()
+        self.clear_selection()
+
     def _on_visual_change(self, *_: Any) -> None:
         self.request_render()
 
     def _on_series_change(self, series: ChartSeries) -> None:
         self._normalized.pop(series.id, None)
-
-        if self.selection is not None:
-            self.clear_selection()
 
         self.request_render()
 
@@ -580,6 +662,7 @@ class FnChart(FnRelativeLayout):
         self._update_plot_bounds()
         self._validate_and_normalize()
         self._resolve_domains()
+        self._refresh_selection()
 
         background = InstructionGroup()
         grid = InstructionGroup()
@@ -607,15 +690,9 @@ class FnChart(FnRelativeLayout):
         plot_left = float(left)
         plot_bottom = float(bottom)
         plot_right = max(plot_left, self.width - float(right))
-        plot_top = max(
-            plot_bottom,
-            self.height - float(top) - legend_height,
-        )
+        plot_top = max(plot_bottom, self.height - float(top) - legend_height)
         self._plot_bounds = ChartBounds(
-            plot_left,
-            plot_bottom,
-            plot_right,
-            plot_top,
+            plot_left, plot_bottom, plot_right, plot_top
         )
 
     def _validate_and_normalize(self) -> None:
@@ -652,6 +729,21 @@ class FnChart(FnRelativeLayout):
                     for point in self._normalized[series.id].points
                     if point.y is not None
                 ]
+                for series in self._series:
+                    if (
+                        not isinstance(series, LineSeries)
+                        or not series.visible
+                        or series.y_axis != axis.id
+                        or series.fill == "none"
+                        or series.fill_baseline == "bottom"
+                    ):
+                        continue
+                    points = self._normalized[series.id].points
+                    if any(
+                        not first.is_gap and not second.is_gap
+                        for first, second in zip(points, points[1:])
+                    ):
+                        y_values.append(series.fill_baseline)
                 fixed = self.viewport.y_ranges.get(axis.id)
                 if fixed is not None:
                     minimum, maximum = fixed
@@ -665,10 +757,7 @@ class FnChart(FnRelativeLayout):
         group.add(Rectangle(pos=(0, 0), size=self.size))
         group.add(Color(*self.plot_background_color))
         group.add(
-            Rectangle(
-                pos=self.plot_bounds.pos,
-                size=self.plot_bounds.size,
-            )
+            Rectangle(pos=self.plot_bounds.pos, size=self.plot_bounds.size)
         )
 
     def _stage_axes(self, group: InstructionGroup) -> None:
@@ -685,9 +774,7 @@ class FnChart(FnRelativeLayout):
             for tick in ticks:
                 if horizontal:
                     pixel = axis.scale.transform(
-                        tick.value,
-                        bounds.left,
-                        bounds.width,
+                        tick.value, bounds.left, bounds.width
                     )
                     if axis.grid:
                         group.add(Color(*self.grid_color))
@@ -711,18 +798,11 @@ class FnChart(FnRelativeLayout):
                     texture = self._text_texture(tick.label)
                     label_x = pixel - texture.size[0] / 2
                     if label_x >= last_label_edge + 4:
-                        self._add_texture(
-                            group,
-                            texture,
-                            label_x,
-                            label_y,
-                        )
+                        self._add_texture(group, texture, label_x, label_y)
                         last_label_edge = label_x + texture.size[0]
                 else:
                     pixel = axis.scale.transform(
-                        tick.value,
-                        bounds.bottom,
-                        bounds.height,
+                        tick.value, bounds.bottom, bounds.height
                     )
                     if axis.grid:
                         group.add(Color(*self.grid_color))
@@ -745,10 +825,7 @@ class FnChart(FnRelativeLayout):
                         else bounds.right + 8
                     )
                     self._add_texture(
-                        group,
-                        texture,
-                        label_x,
-                        pixel - texture.size[1] / 2,
+                        group, texture, label_x, pixel - texture.size[1] / 2
                     )
 
             group.add(Color(*self.axis_color))
@@ -762,11 +839,22 @@ class FnChart(FnRelativeLayout):
                 "max_render_points must be greater than zero"
             )
 
-        point_limit = min(
-            configured_limit,
-            max(int(bounds.width * 2), 100),
-        )
+        point_limit = min(configured_limit, max(int(bounds.width * 2), 100))
+        if not bounds.width or not bounds.height:
+            return
 
+        # Translucent Kivy Line instructions use a nested stencil. At wide
+        # overlapping joins that stencil can pass pixels outside our mask.
+        # Discard outside fragments before either color or stencil writes.
+        clip = PlotClip(bounds)
+        group.add(clip)
+        group = clip.context
+
+        # Clip complete strokes and halos, including their thickness.
+        group.add(StencilPush())
+        group.add(Rectangle(pos=bounds.pos, size=bounds.size))
+        group.add(StencilUse())
+        prepared = []
         for series in self._series:
             if not series.visible:
                 continue
@@ -779,12 +867,18 @@ class FnChart(FnRelativeLayout):
                 quality=self._quality,
                 max_points=point_limit,
             )
-            renderer.render(
-                group,
-                series,
-                context,
-                self.color_for_series(series),
+            prepared.append(
+                (renderer, series, context, self.color_for_series(series))
             )
+
+        # Every area stays behind every line, even for overlapping series.
+        for renderer, series, context, color in prepared:
+            renderer.render_background(group, series, context, color)
+        for renderer, series, context, color in prepared:
+            renderer.render(group, series, context, color)
+        group.add(StencilUnUse())
+        group.add(Rectangle(pos=bounds.pos, size=bounds.size))
+        group.add(StencilPop())
 
     def _stage_empty(self, group: InstructionGroup) -> None:
         texture = self._text_texture(self.empty_text, font_size=14)
@@ -817,12 +911,16 @@ class FnChart(FnRelativeLayout):
 
         bounds = self.plot_bounds
         x, y = selection.pixel
+        if not bounds.left <= x <= bounds.right:
+            # Keep the sample selected so returning to this view restores it.
+            self._tooltip.dismiss()
+            return
+        if selection.mode == "nearest_point" and not bounds.contains(x, y):
+            self._tooltip.dismiss()
+            return
         self._layers.overlay.add(Color(*self.crosshair_color))
         self._layers.overlay.add(
-            Line(
-                points=(x, bounds.bottom, x, bounds.top),
-                width=1,
-            )
+            Line(points=(x, bounds.bottom, x, bounds.top), width=1)
         )
 
         for selected in selection.points:
@@ -835,38 +933,65 @@ class FnChart(FnRelativeLayout):
 
             self._layers.overlay.add(Color(*self.selection_color))
             self._layers.overlay.add(
-                Ellipse(
-                    pos=(marker_x - 4, marker_y - 4),
-                    size=(8, 8),
-                )
+                Ellipse(pos=(marker_x - 6, marker_y - 6), size=(12, 12))
+            )
+            series = self.get_series(selected.series_id)
+            self._layers.overlay.add(Color(*self.color_for_series(series)))
+            self._layers.overlay.add(
+                Ellipse(pos=(marker_x - 4, marker_y - 4), size=(8, 8))
             )
 
         if self.tooltip_enabled:
             self._tooltip.show(
-                self._selection_text(selection),
-                anchor=(x, y),
-                bounds=bounds,
+                self._selection_text(selection), anchor=(x, y), bounds=bounds
             )
+        else:
+            self._tooltip.dismiss()
 
     def _selection_text(self, selection: ChartSelection) -> str:
         axis = self._primary_x_axis()
-        lines = [axis.format(selection.x)]
-
-        for selected in selection.points:
-            series = self.get_series(selected.series_id)
-            if selected.point.y is None:
-                value = "—"
+        title = self._sample_x_text(axis, selection.x)
+        if not self.interaction.snap:
+            title = f"Cursor: {title}"
+        lines = [f"[b]{escape_markup(title)}[/b]"]
+        series_items = [
+            self.get_series(item.series_id) for item in selection.points
+        ]
+        if selection.mode == "nearest_x":
+            series_items = [item for item in self._series if item.visible]
+        for series in series_items:
+            selected = selection.get(series.id)
+            axis = self.get_axis(series.y_axis)
+            if selected is None:
+                value = "no sample"
+            elif selected.point.y is None:
+                value = "no data"
             elif series.value_formatter is None:
-                axis = self.get_axis(series.y_axis)
                 value = axis.format(selected.point.y)
+                if axis.unit:
+                    value = f"{value} {axis.unit}"
             else:
                 value = series.format_value(selected.point.y)
-
-            lines.append(
-                f"{series.label}: {value}"
+            color = get_hex_from_color(self.color_for_series(series)).lstrip(
+                "#"
             )
+            lines.append(
+                f"[color={color}]•[/color] "
+                f"{escape_markup(series.label)}: {escape_markup(value)}"
+            )
+            if selected is not None and selected.point.x != selection.x:
+                x_axis = self.get_axis(series.x_axis)
+                actual = self._sample_x_text(x_axis, selected.point.x)
+                lines.append(f"    at {escape_markup(actual)}")
 
         return "\n".join(lines)
+
+    @staticmethod
+    def _sample_x_text(axis: ChartAxis, x: ChartValue) -> str:
+        # Tick labels can omit dates or seconds. Inspection must be precise.
+        if isinstance(x, datetime):
+            return x.isoformat(sep=" ")
+        return axis.format(x)
 
     def _axis_line(self, axis: ChartAxis) -> tuple[float, ...]:
         bounds = self.plot_bounds
@@ -880,35 +1005,19 @@ class FnChart(FnRelativeLayout):
 
         return bounds.right, bounds.bottom, bounds.right, bounds.top
 
-    def _text_texture(
-        self,
-        text: str,
-        *,
-        font_size: float = 11,
-    ) -> Any:
+    def _text_texture(self, text: str, *, font_size: float = 11) -> Any:
         label = CoreLabel(
-            text=text,
-            font_size=font_size,
-            color=self.text_color,
+            text=text, font_size=font_size, color=self.text_color
         )
         label.refresh()
         return label.texture
 
     @staticmethod
     def _add_texture(
-        group: InstructionGroup,
-        texture: Any,
-        x: float,
-        y: float,
+        group: InstructionGroup, texture: Any, x: float, y: float
     ) -> None:
         group.add(Color(1, 1, 1, 1))
-        group.add(
-            Rectangle(
-                texture=texture,
-                pos=(x, y),
-                size=texture.size,
-            )
-        )
+        group.add(Rectangle(texture=texture, pos=(x, y), size=texture.size))
 
     def _horizontal_axes(self) -> tuple[ChartAxis, ...]:
         return tuple(
@@ -942,17 +1051,23 @@ class FnChart(FnRelativeLayout):
         )
 
 
+def _selection_values(selection: ChartSelection) -> tuple[Any, ...]:
+    return (
+        selection.mode,
+        selection.x,
+        selection.anchor_series_id,
+        tuple(
+            (item.series_id, item.point.x, item.point.y)
+            for item in selection.points
+        ),
+    )
+
+
 def _zoom_domain(
-    lower: float,
-    upper: float,
-    ratio: float,
-    factor: float,
+    lower: float, upper: float, ratio: float, factor: float
 ) -> tuple[float, float]:
     ratio = max(0.0, min(ratio, 1.0))
     span = upper - lower
     anchor = lower + span * ratio
     new_span = max(span * factor, 1e-12)
-    return (
-        anchor - new_span * ratio,
-        anchor + new_span * (1 - ratio),
-    )
+    return (anchor - new_span * ratio, anchor + new_span * (1 - ratio))

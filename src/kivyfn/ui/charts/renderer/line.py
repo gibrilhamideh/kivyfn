@@ -1,19 +1,66 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from math import exp
+from typing import Any
 
-from kivy.graphics import Color, Ellipse, Line
+from kivy.graphics import Color, Ellipse, Line, Mesh
 
 from ..data import ChartPoint
 from ..geometry import ChartBounds, clip_segment
 from ..series import ChartSeries, LineSeries
+from .area import area_meshes
 from .base import SeriesRenderer
 from .context import RenderContext
 from .decimation import min_max_decimate
+from .gradient import gradient_texture
 
 
 class LineRenderer(SeriesRenderer):
     """Render validated line data into clipped Kivy instructions."""
+
+    def render_background(
+        self,
+        group: Any,
+        series: ChartSeries,
+        context: RenderContext,
+        color: tuple[float, float, float, float],
+    ) -> None:
+        if not isinstance(series, LineSeries):
+            raise TypeError("LineRenderer requires a LineSeries")
+
+        if series.fill == "none" or not series.fill_opacity:
+            return
+
+        baseline = context.bounds.bottom
+        if series.fill_baseline != "bottom":
+            baseline = context.y_axis.scale.transform(
+                series.fill_baseline,
+                context.bounds.bottom,
+                context.bounds.height,
+            )
+
+        gradient = series.fill == "gradient"
+        meshes = area_meshes(
+            self._line_segments(series, context),
+            baseline,
+            context.bounds,
+            gradient=gradient,
+        )
+        added_color = False
+        for vertices, indices in meshes:
+            if not added_color:
+                group.add(Color(*color[:3], series.fill_opacity))
+                added_color = True
+
+            group.add(
+                Mesh(
+                    vertices=vertices,
+                    indices=indices,
+                    mode="triangles",
+                    texture=gradient_texture() if gradient else None,
+                )
+            )
 
     def render(
         self,
@@ -25,31 +72,22 @@ class LineRenderer(SeriesRenderer):
         if not isinstance(series, LineSeries):
             raise TypeError("LineRenderer requires a LineSeries")
 
-        normalized = series.normalize()
-        segments = split_at_gaps(normalized.points)
-        group.add(Color(*color))  # type: ignore[attr-defined]
-
+        segments = self._data_segments(series, context)
         rendered_points: list[tuple[float, float]] = []
-        for segment in segments:
-            reduced = min_max_decimate(segment, context.max_points)
-            data_pixels = transform_points(reduced, context)
+        line_segments: list[tuple[tuple[float, float], ...]] = []
+        for data_pixels in segments:
             rendered_points.extend(data_pixels)
             line_pixels = data_pixels
-
             if series.interpolation == "step":
                 line_pixels = step_points(line_pixels)
 
-            for clipped in clip_polyline(line_pixels, context.bounds):
-                kwargs = {
-                    "points": flatten_points(clipped),
-                    "width": series.width,
-                }
+            line_segments.append(line_pixels)
 
-                if series.dash_length:
-                    kwargs["dash_length"] = series.dash_length
-                    kwargs["dash_offset"] = series.dash_offset
+        if series.glow and series.glow_radius and series.glow_opacity:
+            self._render_glow(group, series, context, color, line_segments)
 
-                group.add(Line(**kwargs))  # type: ignore[attr-defined]
+        group.add(Color(*color))  # type: ignore[attr-defined]
+        self._render_lines(group, series, line_segments, context.bounds)
 
         if series.marker_size and len(rendered_points) <= 2000:
             radius = series.marker_size / 2
@@ -61,6 +99,94 @@ class LineRenderer(SeriesRenderer):
                             size=(series.marker_size, series.marker_size),
                         )
                     )
+
+    @staticmethod
+    def _data_segments(
+        series: LineSeries, context: RenderContext
+    ) -> tuple[tuple[tuple[float, float], ...], ...]:
+        segments = split_at_gaps(series.normalize().points)
+        return tuple(
+            transform_points(
+                min_max_decimate(segment, context.max_points), context
+            )
+            for segment in segments
+        )
+
+    @classmethod
+    def _line_segments(
+        cls, series: LineSeries, context: RenderContext
+    ) -> tuple[tuple[tuple[float, float], ...], ...]:
+        segments = cls._data_segments(series, context)
+        if series.interpolation == "step":
+            return tuple(step_points(segment) for segment in segments)
+
+        return segments
+
+    @classmethod
+    def _render_glow(
+        cls,
+        group: Any,
+        series: LineSeries,
+        context: RenderContext,
+        color: tuple[float, float, float, float],
+        segments: Iterable[tuple[tuple[float, float], ...]],
+    ) -> None:
+        # A bounded eight-stroke Gaussian approximation avoids offscreen
+        # buffers. Expanded CPU clipping keeps halos from nearby offscreen
+        # samples; the chart's stencil clips the final pixels to the plot.
+        padding = series.width + series.glow_radius
+        bounds = ChartBounds(
+            context.bounds.left - padding,
+            context.bounds.bottom - padding,
+            context.bounds.right + padding,
+            context.bounds.top + padding,
+        )
+        clipped = [
+            flatten_points(line)
+            for segment in segments
+            for line in clip_polyline(segment, bounds)
+        ]
+        if not clipped:
+            return
+
+        layers = 8
+        accumulated = 0.0
+        for layer in range(layers, 0, -1):
+            fraction = layer / layers
+            falloff = exp(-4 * (fraction**2 - (1 / layers) ** 2))
+            target = series.glow_opacity * falloff
+            alpha = (target - accumulated) / (1 - accumulated)
+            accumulated = target
+            group.add(Color(*color[:3], alpha))
+            width = series.width + series.glow_radius * fraction
+            for points in clipped:
+                group.add(Line(**cls._line_kwargs(series, points, width)))
+
+    @classmethod
+    def _render_lines(
+        cls,
+        group: Any,
+        series: LineSeries,
+        segments: Iterable[tuple[tuple[float, float], ...]],
+        bounds: ChartBounds,
+    ) -> None:
+        for segment in segments:
+            for clipped in clip_polyline(segment, bounds):
+                points = flatten_points(clipped)
+                group.add(
+                    Line(**cls._line_kwargs(series, points, series.width))
+                )
+
+    @staticmethod
+    def _line_kwargs(
+        series: LineSeries, points: list[float], width: float
+    ) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {"points": points, "width": width}
+        if series.dash_length:
+            kwargs["dash_length"] = series.dash_length
+            kwargs["dash_offset"] = series.dash_offset
+
+        return kwargs
 
 
 def split_at_gaps(
@@ -86,8 +212,7 @@ def split_at_gaps(
 
 
 def transform_points(
-    points: tuple[ChartPoint, ...],
-    context: RenderContext,
+    points: tuple[ChartPoint, ...], context: RenderContext
 ) -> tuple[tuple[float, float], ...]:
     transformed: list[tuple[float, float]] = []
 
@@ -96,14 +221,10 @@ def transform_points(
             continue
 
         x = context.x_axis.scale.transform(
-            point.x,
-            context.bounds.left,
-            context.bounds.width,
+            point.x, context.bounds.left, context.bounds.width
         )
         y = context.y_axis.scale.transform(
-            point.y,
-            context.bounds.bottom,
-            context.bounds.height,
+            point.y, context.bounds.bottom, context.bounds.height
         )
         transformed.append((x, y))
 
@@ -125,8 +246,7 @@ def step_points(
 
 
 def clip_polyline(
-    points: tuple[tuple[float, float], ...],
-    bounds: ChartBounds,
+    points: tuple[tuple[float, float], ...], bounds: ChartBounds
 ) -> tuple[tuple[tuple[float, float], ...], ...]:
     if len(points) < 2:
         return ()
@@ -159,17 +279,13 @@ def clip_polyline(
     return tuple(lines)
 
 
-def flatten_points(
-    points: Iterable[tuple[float, float]],
-) -> list[float]:
+def flatten_points(points: Iterable[tuple[float, float]]) -> list[float]:
     return [coordinate for point in points for coordinate in point]
 
 
 def _same_point(
-    first: tuple[float, float],
-    second: tuple[float, float],
+    first: tuple[float, float], second: tuple[float, float]
 ) -> bool:
     return (
-        abs(first[0] - second[0]) < 1e-9
-        and abs(first[1] - second[1]) < 1e-9
+        abs(first[0] - second[0]) < 1e-9 and abs(first[1] - second[1]) < 1e-9
     )

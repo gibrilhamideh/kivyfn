@@ -10,6 +10,15 @@ from .context import RenderContext
 class SeriesRenderer(ABC):
     """Internal rendering contract for one visual series kind."""
 
+    def render_background(
+        self,
+        group: Any,
+        series: ChartSeries,
+        context: RenderContext,
+        color: tuple[float, float, float, float],
+    ) -> None:
+        """Add optional area decoration below every series's foreground."""
+
     @abstractmethod
     def render(
         self,
