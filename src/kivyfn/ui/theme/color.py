@@ -2,18 +2,14 @@
 from kivy.event import EventDispatcher
 from kivy.properties import ColorProperty, OptionProperty
 
-from kivyfn.ui.theme.utils import (
-    tone as _tone,
-    alpha as _alpha,
-    blend,
-    overlay
-)
-
 from kivyfn.ui.theme.types import (
-        ThemeRole,
-        ThemePrimeRole,
-        ThemeDerivedRole,
+    ThemeDerivedRole,
+    ThemePrimeRole,
+    ThemeRole,
 )
+from kivyfn.ui.theme.utils import alpha as _alpha
+from kivyfn.ui.theme.utils import blend, overlay
+from kivyfn.ui.theme.utils import tone as _tone
 
 PRIME_TO_DERIVED_ROLE: dict[ThemePrimeRole, ThemeDerivedRole] = {
     "primary": "onPrimary",
@@ -36,34 +32,62 @@ DERIVED_TO_PRIME_ROLE: dict[ThemeDerivedRole, ThemePrimeRole] = {
     "onSuccess": "success",
 }
 
+
 class ThemeColor(EventDispatcher):
+    """Shared dark palette with explicit surface and text levels."""
+
     mode = OptionProperty("dark", options=["dark", "light"])
 
-    primary = ColorProperty([0.48, 0.63, 1.00, 1])      # blue
-    onPrimary = ColorProperty([0.05, 0.07, 0.12, 1])
+    # =================================== #
+    # section: Actions
+    # =================================== #
+    primary = ColorProperty("#2cd4cc")
+    onPrimary = ColorProperty("#071113")
 
-    secondary = ColorProperty([0.73, 0.60, 1.00, 1])    # purple
-    onSecondary = ColorProperty([0.05, 0.07, 0.12, 1])
+    secondary = ColorProperty("#6685ff")
+    onSecondary = ColorProperty("#071113")
 
-    surface = ColorProperty([0.09, 0.11, 0.18, 1])      # #161b2d
-    onSurface = ColorProperty([0.90, 0.93, 1.00, 1])    # soft text
+    # =================================== #
+    # section: Surfaces and text
+    # =================================== #
+    background = ColorProperty("#080b10")
+    onBackground = ColorProperty("#f4f7fb")
 
-    background = ColorProperty([0.04, 0.06, 0.12, 1])   # #0b1020
-    onBackground = ColorProperty([0.90, 0.93, 1.00, 1])
+    surface = ColorProperty("#10151d")
+    onSurface = ColorProperty("#f4f7fb")
+    surfaceRaised = ColorProperty("#171e29")
+    surfaceHover = ColorProperty("#202936")
+    surfaceActive = ColorProperty("#273343")
 
-    error = ColorProperty([1.00, 0.46, 0.56, 1])        # red
-    onError = ColorProperty([0.05, 0.07, 0.12, 1])
+    textSecondary = ColorProperty("#b4bfcc")
+    textMuted = ColorProperty("#7f8b99")
+    textDisabled = ColorProperty("#596472")
 
-    warning = ColorProperty([0.88, 0.73, 0.46, 1])      # yellow/orange
-    onWarning = ColorProperty([0.05, 0.07, 0.12, 1])
+    # =================================== #
+    # section: Status
+    # =================================== #
+    error = ColorProperty("#fb7185")
+    onError = ColorProperty("#071113")
 
-    success = ColorProperty([0.62, 0.82, 0.42, 1])      # green
-    onSuccess = ColorProperty([0.05, 0.07, 0.12, 1])
+    warning = ColorProperty("#fbbf24")
+    onWarning = ColorProperty("#071113")
 
-    outline = ColorProperty([0.30, 0.35, 0.50, 1])
-    divider = ColorProperty([0.55, 0.60, 0.65, 0.25])
-    shadow = ColorProperty([1, 1, 1, 1])
-    disabled = ColorProperty([0.75, 0.80, 0.93, 1])
+    success = ColorProperty("#4ade80")
+    onSuccess = ColorProperty("#071113")
+
+    # =================================== #
+    # section: Borders and interaction
+    # =================================== #
+    outline = ColorProperty("#2a3544")
+    outlineStrong = ColorProperty("#3a485b")
+    divider = ColorProperty("#2a3544")
+    shadow = ColorProperty("#000000")
+    focus = ColorProperty("#6685ff")
+    selection = ColorProperty([44 / 255, 212 / 255, 204 / 255, 0.24])
+
+    # Keep the source opaque for existing alpha("disabled", ...) callers.
+    # Use textDisabled directly when an opaque disabled text color is needed.
+    disabled = ColorProperty("#f4f7fb")
 
     def get_role(self, role: ThemeRole):
         return getattr(self, role)

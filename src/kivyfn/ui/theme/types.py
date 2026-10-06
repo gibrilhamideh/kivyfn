@@ -28,10 +28,19 @@ ThemeDerivedRole: TypeAlias = Literal[
 
 
 ThemeUtilityRole: TypeAlias = Literal[
+    "surfaceRaised",
+    "surfaceHover",
+    "surfaceActive",
+    "textSecondary",
+    "textMuted",
+    "textDisabled",
     "outline",
+    "outlineStrong",
     "divider",
     "disabled",
     "shadow",
+    "focus",
+    "selection",
 ]
 
 
@@ -62,10 +71,19 @@ THEME_DERIVED_ROLE = (
 )
 
 THEME_UTILITY_ROLE = (
+    "surfaceRaised",
+    "surfaceHover",
+    "surfaceActive",
+    "textSecondary",
+    "textMuted",
+    "textDisabled",
     "outline",
+    "outlineStrong",
     "divider",
     "disabled",
-    "shadow"
+    "shadow",
+    "focus",
+    "selection",
 )
 
 THEME_ROLE = THEME_PRIME_ROLE + THEME_DERIVED_ROLE + THEME_UTILITY_ROLE
