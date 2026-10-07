@@ -1,93 +1,97 @@
-# kiyvfn.ui.theme.types.py
-from __future__ import annotations
-from typing import Literal, TypeAlias
+"""Material 3 color roles and KivyFN component style types.
 
-# ======================================== #
-# THEME ROLES
-# ======================================== #
+Success and warning are KivyFN semantic extensions to Material 3.
+"""
+from __future__ import annotations
+
+from typing import Literal, TypeAlias, get_args
+
+# =================================== #
+# section: Color roles
+# =================================== #
+ThemeMode: TypeAlias = Literal["dark", "light"]
+
 ThemePrimeRole: TypeAlias = Literal[
     "primary",
+    "primaryContainer",
     "secondary",
-    "surface",
-    "background",
+    "secondaryContainer",
+    "tertiary",
+    "tertiaryContainer",
     "error",
-    "warning",
+    "errorContainer",
     "success",
+    "successContainer",
+    "warning",
+    "warningContainer",
+    "primaryFixed",
+    "primaryFixedDim",
+    "secondaryFixed",
+    "secondaryFixedDim",
+    "tertiaryFixed",
+    "tertiaryFixedDim",
+    "surface",
+    "surfaceDim",
+    "surfaceBright",
+    "surfaceContainerLowest",
+    "surfaceContainerLow",
+    "surfaceContainer",
+    "surfaceContainerHigh",
+    "surfaceContainerHighest",
+    "inverseSurface",
 ]
 
 
 ThemeDerivedRole: TypeAlias = Literal[
     "onPrimary",
+    "onPrimaryContainer",
     "onSecondary",
-    "onSurface",
-    "onBackground",
+    "onSecondaryContainer",
+    "onTertiary",
+    "onTertiaryContainer",
     "onError",
-    "onWarning",
+    "onErrorContainer",
     "onSuccess",
+    "onSuccessContainer",
+    "onWarning",
+    "onWarningContainer",
+    "onPrimaryFixed",
+    "onSecondaryFixed",
+    "onTertiaryFixed",
+    "onSurface",
+    "onInverseSurface",
+    "onSurfaceVariant",
+    "onPrimaryFixedVariant",
+    "onSecondaryFixedVariant",
+    "onTertiaryFixedVariant",
 ]
 
 
 ThemeUtilityRole: TypeAlias = Literal[
-    "surfaceRaised",
-    "surfaceHover",
-    "surfaceActive",
-    "textSecondary",
-    "textMuted",
-    "textDisabled",
+    "inversePrimary",
     "outline",
-    "outlineStrong",
-    "divider",
-    "disabled",
+    "outlineVariant",
     "shadow",
-    "focus",
-    "selection",
+    "scrim",
+    "surfaceTint",
 ]
 
 
-ThemeRole: TypeAlias = (
-    ThemePrimeRole
-    | ThemeDerivedRole
-    | ThemeUtilityRole
-)
-
-THEME_PRIME_ROLE = (
-    "primary",
-    "secondary",
-    "surface",
-    "background",
-    "error",
-    "warning",
-    "success",
-)
-
-THEME_DERIVED_ROLE = (
-    "onPrimary",
-    "onSecondary",
-    "onSurface",
-    "onBackground",
-    "onError",
-    "onWarning",
-    "onSuccess",
-)
-
-THEME_UTILITY_ROLE = (
-    "surfaceRaised",
-    "surfaceHover",
-    "surfaceActive",
-    "textSecondary",
-    "textMuted",
-    "textDisabled",
-    "outline",
-    "outlineStrong",
-    "divider",
-    "disabled",
-    "shadow",
-    "focus",
-    "selection",
-)
-
+ThemeRole: TypeAlias = ThemePrimeRole | ThemeDerivedRole | ThemeUtilityRole
+THEME_PRIME_ROLE = get_args(ThemePrimeRole)
+THEME_DERIVED_ROLE = get_args(ThemeDerivedRole)
+THEME_UTILITY_ROLE = get_args(ThemeUtilityRole)
 THEME_ROLE = THEME_PRIME_ROLE + THEME_DERIVED_ROLE + THEME_UTILITY_ROLE
-
+THEME_SURFACE_ROLE = (
+    "surface",
+    "surfaceDim",
+    "surfaceBright",
+    "surfaceContainerLowest",
+    "surfaceContainerLow",
+    "surfaceContainer",
+    "surfaceContainerHigh",
+    "surfaceContainerHighest",
+)
 
 
 # ======================================== #
